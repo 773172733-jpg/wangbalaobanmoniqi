@@ -1,8 +1,9 @@
-'use strict';
+﻿'use strict';
 
 const CanvasUtils = require('../ui/CanvasUtils');
 const DeviceSystem = require('../systems/DeviceSystem');
 const equipmentCatalog = require('../data/equipmentCatalog');
+const ExpansionSystem = require('../systems/ExpansionSystem');
 
 function rect(x, y, width, height) { return { x: x, y: y, width: width, height: height }; }
 function inside(point, box) { return point && point.x >= box.x && point.x <= box.x + box.width && point.y >= box.y && point.y <= box.y + box.height; }
@@ -15,6 +16,7 @@ class DeviceScene {
     this.inputManager = deps.inputManager;
     this.requestRender = deps.requestRender || function () {};
     this.deviceSystem = new DeviceSystem(deps.gameState, deps.saveManager);
+    this.expansionSystem = new ExpansionSystem(deps.gameState, deps.saveManager);
     this.selectedCategory = 'computer';
     this.selectedType = 'basic_pc';
     this.listScroll = 0;
@@ -211,6 +213,7 @@ class DeviceScene {
     const padding = 7;
     const summaryHeight = 48;
     const summary = this.getSummary(state);
+    const expansionArea = this.expansionSystem.getCurrentArea();
     context.fillStyle = '#081824'; context.fillRect(bounds.x, bounds.y, bounds.width, bounds.height);
     this.drawSummary(context, rect(bounds.x + padding, bounds.y + padding, bounds.width - padding * 2, summaryHeight), summary);
     const contentY = bounds.y + padding * 2 + summaryHeight;

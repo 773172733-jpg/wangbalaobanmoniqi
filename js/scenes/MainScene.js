@@ -1,4 +1,4 @@
-'use strict';
+﻿'use strict';
 
 const UIManager = require('../ui/UIManager');
 const TopBar = require('../ui/TopBar');
@@ -8,6 +8,7 @@ const DeviceScene = require('./DeviceScene');
 const EmployeeScene = require('./EmployeeScene');
 const MarketingScene = require('./MarketingScene');
 const FinanceScene = require('./FinanceScene');
+const VersionDisplay = require('../ui/VersionDisplay');
 
 class MainScene {
   constructor(dependencies) {
@@ -25,6 +26,7 @@ class MainScene {
       { id: 'finance', label: '财务' }
     ];
     this.bottomTabBar = new BottomTabBar(this.tabs);
+    this.versionDisplay = new VersionDisplay();
     const sceneDependencies = Object.assign({}, dependencies, { requestRender: () => this.render() });
     this.scenes = {
       overview: new OverviewScene(sceneDependencies),
@@ -99,6 +101,7 @@ class MainScene {
       height: Math.max(0, contentBottom - topY - topHeight)
     }, state);
 
+    this.versionDisplay.draw(context, this.viewport);
     this.bottomTabBar.draw(context, {
       x: contentLeft,
       y: topY,

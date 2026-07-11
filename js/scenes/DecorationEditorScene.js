@@ -7,11 +7,12 @@ const FurnitureManager = require('../map/FurnitureManager');
 const DecorationRenderer = require('../map/DecorationRenderer');
 const DecorationDraft = require('../systems/DecorationDraft');
 const RatingSystem = require('../systems/RatingSystem');
+const MapBoundsManager = require('../map/MapBoundsManager');
 const catalog = require('../data/furnitureCatalog');
 const FinanceSystem = require('../systems/FinanceSystem');
 const ExpansionSystem = require('../systems/ExpansionSystem');
 const MapSystem = require('../map/MapSystem');
-const MapBoundsManager = require('../map/MapBoundsManager');
+const VersionDisplay = require('../ui/VersionDisplay');
 
 function rect(x, y, width, height) { return { x, y, width, height }; }
 function inside(point, box) { return point && point.x >= box.x && point.x <= box.x + box.width && point.y >= box.y && point.y <= box.y + box.height; }
@@ -19,18 +20,19 @@ function distance(a, b) { const dx = a.x - b.x; const dy = a.y - b.y; return Mat
 
 class DecorationEditorScene {
   constructor(deps) {
-    Object.assign(this, deps);
     this.name = 'DecorationEditorScene';
-    this.gridMap = new GridMap();
     this.cellSize = 40;
+    this.cellSize = 40;
+    this.expansionSystem = new ExpansionSystem(this.gameState, this.saveManager);
+    this.boundsManager = new MapBoundsManager(this.expansionSystem, this.cellSize);
+    const initDims = this.boundsManager.getDimensions();
+    this.gridMap = new GridMap(initDims.columns, initDims.rows);
     this.ratingSystem = new RatingSystem();
     this.catalogByType = RatingSystem.catalogByType;
     this.furnitureManager = new FurnitureManager(this.catalogByType, this.gridMap);
     this.financeSystem = new FinanceSystem(this.gameState, this.saveManager);
-    this.expansionSystem = new ExpansionSystem(this.gameState, this.saveManager);
     this.renderer = new DecorationRenderer(this.assetManager, this.gridMap);
-    this.camera = new Camera2D({ worldWidth: this.gridMap.columns * this.cellSize, worldHeight: this.gridMap.rows * this.cellSize });
-    this.draft = null;
+    this.camera = new Camera2D({ worldWidth: initDims.worldWidth, worldHeight: initDims.worldHeight });
     this.drawerOpen = false;
     this.detailOpen = false;
     
@@ -40,6 +42,7 @@ class DecorationEditorScene {
     this.gesture = null;
     this.mapBounds = rect(0, 0, 1, 1);
     this.drawerBounds = null;
+    this.versionDisplay = new VersionDisplay();
     this.gestureHandler = {
       onTouchStart: this.onTouchStart.bind(this),
       onTouchMove: this.onTouchMove.bind(this),
@@ -312,14 +315,18 @@ class DecorationEditorScene {
     CanvasUtils.fillRoundedRect(context, box, 7, '#0d2232'); CanvasUtils.strokeRoundedRect(context, box, 7, '#d3a845', 1);
     context.fillStyle = '#f3d47d'; context.font = 'bold 13px sans-serif'; context.textAlign = 'left'; context.fillText('家具库', box.x + 12, box.y + 22);
     this.button(context, 'drawer:close', rect(box.x + box.width - 46, box.y + 2, 40, 40), '×', true, () => { this.drawerOpen = false; this.requestRender(); });
-    const categories = ['全部', '电脑', '功能', '休息', '装饰'];
+    const categories = ['全部', '电脑', '功能', '休息', '装饰', '空间管理'];
     const tabW = (box.width - 16) / categories.length;
     categories.forEach((name, index) => this.button(context, 'drawer:cat:' + name, rect(box.x + 8 + index * tabW, box.y + 43, tabW - 3, 40), name, true, () => { this.category = name; this.catalogScroll = 0; this.requestRender(); }, this.category === name));
-    const items = this.category === '全部' ? catalog : catalog.filter((item) => item.category === this.category);
     const listTop = box.y + 90;
     const cardH = 62;
-    const contentH = items.length * (cardH + 6);
     const visibleH = box.y + box.height - listTop - 8;
+    if (this.category === '空间管理') {
+      this.drawExpansionInDrawer(context, rect(box.x + 8, listTop, box.width - 16, visibleH));
+      return;
+    }
+    const items = this.category === '全部' ? catalog : catalog.filter((item) => item.category === this.category);
+    const contentH = items.length * (cardH + 6);
     this.catalogScroll = Math.min(this.catalogScroll, Math.max(0, contentH - visibleH));
     context.save(); context.beginPath(); context.rect(box.x + 5, listTop, box.width - 10, visibleH); context.clip();
     items.forEach((item, index) => {
@@ -335,7 +342,6 @@ class DecorationEditorScene {
     });
     context.restore();
   }
-
   drawDetails(context, view) {
     if (!this.detailOpen) return;
     const selected = this.furnitureManager.find(this.draft.draftFurniture, this.draft.selectedFurnitureId);
