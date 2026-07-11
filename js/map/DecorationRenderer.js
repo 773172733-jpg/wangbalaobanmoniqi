@@ -192,9 +192,9 @@ class DecorationRenderer {
   getWallConfigs() {
     if (this._wallConfigs) return this._wallConfigs;
     this._wallConfigs = {
-      wall_horizontal: { spriteKey: "wall_horizontal", spritePath: "assets/textures/wall/wall_horizontal_01.png", renderScale: 1 },
-      wall_vertical: { spriteKey: "wall_vertical", spritePath: "assets/textures/wall/wall_vertical_01.png", renderScale: 1 },
-      wall_corner: { spriteKey: "wall_corner", spritePath: "assets/textures/wall/wall_corner_L_01.png", renderScale: 1 }
+      wall_horizontal: { spriteKey: "wall_horizontal", spritePath: "assets/textures/wall/wall_horizontal_01.png", renderScale: 0.35 },
+      wall_vertical: { spriteKey: "wall_vertical", spritePath: "assets/textures/wall/wall_vertical_01.png", renderScale: 0.35 },
+      wall_corner: { spriteKey: "wall_corner", spritePath: "assets/textures/wall/wall_corner_L_01.png", renderScale: 0.35 }
     };
     return this._wallConfigs;
   }
@@ -213,8 +213,9 @@ class DecorationRenderer {
         context.save();
         context.imageSmoothingEnabled = false;
         // 使用原图比例，以格子大小为准缩放
-        var dw = Math.round(image.width * camera.zoom);
-        var dh = Math.round(image.height * camera.zoom);
+        var s = (cfg.renderScale || 1) * camera.zoom;
+        var dw = Math.round(image.width * s);
+        var dh = Math.round(image.height * s);
         var cx = Math.round(p.x + cell * camera.zoom / 2);
         var cy = Math.round(p.y + cell * camera.zoom / 2);
         context.translate(cx, cy);
