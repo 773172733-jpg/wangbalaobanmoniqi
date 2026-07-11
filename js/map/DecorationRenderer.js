@@ -203,43 +203,31 @@ class DecorationRenderer {
     if (!walls || !walls.length) return;
     var configs = this.getWallConfigs();
     var self = this;
+    var cell = cellSize || 40;
     walls.forEach(function(wall) {
       var cfg = configs[wall.type];
       if (!cfg) return;
       var image = self.assetManager ? self.assetManager.getImage(cfg.spriteKey) : null;
-      var cell = cellSize || 40;
       var p = camera.worldToScreen(wall.gridX * cell, wall.gridY * cell);
-      var scale = cfg.renderScale || 1;
-      var base = Math.round(cell * camera.zoom * scale);
-      var boxW = base;
-      var boxH = base;
-      if (image && image.width && image.height) {
-        var nImgRatio = image.width / image.height;
-        if (nImgRatio > 1) { boxH = Math.round(base / nImgRatio); }
-        else { boxW = Math.round(base * nImgRatio); }
-      }
-      var box = { x: Math.round(p.x), y: Math.round(p.y), width: boxW, height: boxH };
       if (image && image.width && image.height) {
         context.save();
         context.imageSmoothingEnabled = false;
-        var cx = box.x + box.width / 2;
-        var cy = box.y + box.height / 2;
+        // 使用原图比例，以格子大小为准缩放
+        var dw = Math.round(image.width * camera.zoom);
+        var dh = Math.round(image.height * camera.zoom);
+        var cx = Math.round(p.x + cell * camera.zoom / 2);
+        var cy = Math.round(p.y + cell * camera.zoom / 2);
         context.translate(cx, cy);
-        // Apply flip before rotation
         var sx = wall.flipH ? -1 : 1;
         var sy = wall.flipV ? -1 : 1;
         context.scale(sx, sy);
         context.rotate((wall.rotation || 0) * Math.PI / 180);
-        var imgRatio = image.width / image.height;
-        var boxRatio = box.width / box.height;
-        var dw, dh;
-        if (imgRatio > boxRatio) { dw = box.width; dh = Math.round(box.width / imgRatio); }
-        else { dh = box.height; dw = Math.round(box.height * imgRatio); }
         context.drawImage(image, Math.round(-dw / 2), Math.round(-dh / 2), dw, dh);
         context.restore();
       } else {
+        var s = Math.round(cell * camera.zoom);
         context.fillStyle = wall.type === "wall_corner" ? "#5c4a3a" : "#4a3c2f";
-        context.fillRect(box.x, box.y, box.width, box.height);
+        context.fillRect(Math.round(p.x), Math.round(p.y), s, s);
       }
     });
   }
