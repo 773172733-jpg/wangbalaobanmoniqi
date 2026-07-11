@@ -196,7 +196,15 @@ class DecorationEditorScene {
   preview() {
     const grid = this.draft.previewPosition;
     if (!grid) return null;
-    if (this.draft.currentMode === 'place' && this.draft.selectedCatalogType) return { id: 'preview', type: this.draft.selectedCatalogType, gridX: grid.gridX, gridY: grid.gridY, rotation: this.draft.previewRotation };
+    if (this.draft.currentMode === 'place' && this.draft.selectedCatalogType) {
+      const item = { id: 'preview', type: this.draft.selectedCatalogType, gridX: grid.gridX, gridY: grid.gridY, rotation: this.draft.previewRotation };
+      // 电脑购买时预览也显示轮流颜色
+      if (this._computerPurchase) {
+        const next = this._nextComputerColor || 0;
+        item.textureVariant = next % 3;
+      }
+      return item;
+    }
     if (this.draft.currentMode === 'move') {
       const selected = this.furnitureManager.find(this.draft.draftFurniture, this.draft.selectedFurnitureId);
       return selected ? Object.assign({}, selected, { gridX: grid.gridX, gridY: grid.gridY }) : null;
