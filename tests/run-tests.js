@@ -17,6 +17,7 @@ const BusinessSimulationSystem = require('../js/systems/BusinessSimulationSystem
 const ExpansionSystem = require('../js/systems/ExpansionSystem');
 const expansionConfig = require('../js/data/expansionConfig');
 const MapSystem = require('../js/map/MapSystem');
+const WorldGridSystem = require('../js/map/WorldGridSystem');
 const GridMap = require('../js/map/GridMap');
 const OperatingMetricsSystem = require('../js/systems/OperatingMetricsSystem');
 
@@ -535,14 +536,14 @@ function testExpansionMapLinkage() {
   const eventBus = new EventBus();
   const gameState = new GameState(data, eventBus);
   const expansionSystem = new ExpansionSystem(gameState, saveManager);
-  const mapSystem = new MapSystem(expansionSystem, 40);
-  const gridMap = new GridMap(mapSystem.getColumns(), mapSystem.getRows());
+  const worldGrid = new WorldGridSystem(expansionSystem, 40);
+  const gridMap = new GridMap(worldGrid.columns, worldGrid.rows);
 
   // 1. Initial map size is correct
-  let worldSize = mapSystem.getWorldSize();
+  let worldSize = worldGrid.getWorldSize();
   assert.ok(worldSize.width > 0, 'World width should be positive');
   assert.ok(worldSize.height > 0, 'World height should be positive');
-  let bounds = mapSystem.getBounds();
+  let bounds = worldGrid.getBounds();
   assert.strictEqual(bounds.minX, 0);
   assert.strictEqual(bounds.minY, 0);
   assert.ok(bounds.maxX > 0);
@@ -558,6 +559,7 @@ function testExpansionMapLinkage() {
 
   gameState.getState().player.cash = 5000000;
   const result = expansionSystem.expand();
+  worldGrid.expand();
   assert.ok(result.ok, 'Expansion should succeed');
   assert.ok(mapExpandedFired, 'mapExpanded event should fire');
   assert.ok(eventPayload, 'Event payload should exist');
@@ -566,13 +568,13 @@ function testExpansionMapLinkage() {
   assert.ok(eventPayload.dimensions.rows > 0);
 
   // 3. MapSystem reflects expanded size
-  worldSize = mapSystem.getWorldSize();
+  worldSize = worldGrid.getWorldSize();
   assert.ok(worldSize.width > 480, 'World width should increase after expansion');
   assert.ok(worldSize.height > 320, 'World height should increase after expansion');
 
   // 4. GridMap can be updated from MapSystem
-  const newColumns = mapSystem.getColumns();
-  const newRows = mapSystem.getRows();
+  const newColumns = worldGrid.columns;
+  const newRows = worldGrid.rows;
   assert.ok(newColumns >= 12, 'Columns should increase or stay at minimum');
   gridMap.columns = newColumns;
   gridMap.rows = newRows;
@@ -603,11 +605,13 @@ function testExpansionMapLinkage() {
 
   // 6. Multiple expansions continue to increase size
   gameState.getState().player.cash = 5000000;
-  const beforeMulti = mapSystem.getWorldSize();
+  const beforeMulti = worldGrid.getWorldSize();
   expansionSystem.expand();
+  worldGrid.expand();
   gameState.getState().player.cash = 5000000;
   expansionSystem.expand();
-  const afterMulti = mapSystem.getWorldSize();
+  worldGrid.expand();
+  const afterMulti = worldGrid.getWorldSize();
   assert.ok(afterMulti.width > beforeMulti.width, 'Multiple expansions increase world width');
   assert.ok(afterMulti.height > beforeMulti.height, 'Multiple expansions increase world height');
 
@@ -619,11 +623,11 @@ function testExpansionMapLinkage() {
   assert.strictEqual(reloaded.expansion.currentArea, 21970, 'Expansion area should persist');
 
   // 8. MapSystem with null expansionSystem returns defaults
-  const defaultMap = new MapSystem(null, 40);
-  const defaultSize = defaultMap.getWorldSize();
+  const defaultWorldGrid = new WorldGridSystem(null, 40);
+  const defaultSize = defaultWorldGrid.getWorldSize();
   assert.ok(defaultSize.width > 0);
   assert.ok(defaultSize.height > 0);
-  const defaultBounds = defaultMap.getBounds();
+  const defaultBounds = defaultWorldGrid.getBounds();
   assert.strictEqual(defaultBounds.minX, 0);
   assert.strictEqual(defaultBounds.minY, 0);
 }
@@ -653,7 +657,7 @@ function testExpansionPreservesFurniture() {
   const eventBus = new EventBus();
   const gameState = new GameState(data, eventBus);
   const expansionSystem = new ExpansionSystem(gameState, saveManager);
-  const mapSystem = new MapSystem(expansionSystem, 40);
+  const worldGrid = new WorldGridSystem(expansionSystem, 40);
   
   // 2. Record initial furniture state
   const beforeFurniture = JSON.stringify(gameState.getState().furniture);
@@ -661,6 +665,7 @@ function testExpansionPreservesFurniture() {
   // 3. Expand
   gameState.getState().player.cash = 5000000;
   const result = expansionSystem.expand();
+  worldGrid.expand();
   assert.ok(result.ok, 'Expansion should succeed');
   
   // 4. Verify furniture count unchanged
@@ -678,7 +683,7 @@ function testExpansionPreservesFurniture() {
   }
   
   // 6. Verify edge furniture is still valid in expanded grid
-  const gridMap = new GridMap(mapSystem.getColumns(), mapSystem.getRows());
+  const gridMap = new GridMap(worldGrid.columns, worldGrid.rows);
   const catalogByType = {};
   const furnitureCatalog = require('../js/data/furnitureCatalog');
   furnitureCatalog.forEach(item => { catalogByType[item.type] = item; });
@@ -691,14 +696,15 @@ function testExpansionPreservesFurniture() {
   // 7. Expand again and re-verify
   gameState.getState().player.cash = 5000000;
   expansionSystem.expand();
-  const gridMap2 = new GridMap(mapSystem.getColumns(), mapSystem.getRows());
+  worldGrid.expand();
+  const gridMap2 = new GridMap(worldGrid.columns, worldGrid.rows);
   for (const item of gameState.getState().furniture) {
     const validation = gridMap2.validatePlacement(gameState.getState().furniture, catalogByType, item, item.id);
     assert.ok(validation.ok, item.id + ' should remain valid after double expansion: ' + validation.reason);
   }
   
   // 8. Verify new grid area is accessible (can place furniture in new zone)
-  const newEdgeItem = { id: 'f_new', type: 'standard_pc_desk', gridX: mapSystem.getColumns() - 2, gridY: 0, rotation: 0 };
+  const newEdgeItem = { id: 'f_new', type: 'standard_pc_desk', gridX: worldGrid.columns - 2, gridY: 0, rotation: 0 };
   const placeValidation = gridMap2.validatePlacement(gameState.getState().furniture, catalogByType, newEdgeItem, null);
   assert.ok(placeValidation.ok, 'Should be able to place furniture in expanded area');
   
@@ -706,7 +712,7 @@ function testExpansionPreservesFurniture() {
   saveManager.save(gameState.getState());
   const reloaded = saveManager.load();
   assert.strictEqual(reloaded.furniture.length, testFurniture.length, 'Furniture count should persist after reload');
-  const reloadedGridMap = new GridMap(mapSystem.getColumns(), mapSystem.getRows());
+  const reloadedGridMap = new GridMap(worldGrid.columns, worldGrid.rows);
   for (const item of reloaded.furniture) {
     const validation = reloadedGridMap.validatePlacement(reloaded.furniture, catalogByType, item, item.id);
     assert.ok(validation.ok, item.id + ' should be valid after reload: ' + validation.reason);

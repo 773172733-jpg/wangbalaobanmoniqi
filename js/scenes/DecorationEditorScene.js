@@ -8,6 +8,7 @@ const DecorationRenderer = require('../map/DecorationRenderer');
 const DecorationDraft = require('../systems/DecorationDraft');
 const RatingSystem = require('../systems/RatingSystem');
 const MapBoundsManager = require('../map/MapBoundsManager');
+const WorldGridSystem = require('../map/WorldGridSystem');
 const catalog = require('../data/furnitureCatalog');
 const FinanceSystem = require('../systems/FinanceSystem');
 const ExpansionSystem = require('../systems/ExpansionSystem');
@@ -24,15 +25,15 @@ class DecorationEditorScene {
     this.name = 'DecorationEditorScene';
     this.cellSize = 40;
     this.expansionSystem = new ExpansionSystem(this.gameState, this.saveManager);
-    this.boundsManager = new MapBoundsManager(this.expansionSystem, this.cellSize);
-    const initDims = this.boundsManager.getDimensions();
-    this.gridMap = new GridMap(initDims.columns, initDims.rows);
+    this.worldGrid = new WorldGridSystem(this.expansionSystem, this.cellSize);
+    this.gridMap = new GridMap(this.worldGrid.columns, this.worldGrid.rows);
     this.ratingSystem = new RatingSystem();
     this.catalogByType = RatingSystem.catalogByType;
     this.furnitureManager = new FurnitureManager(this.catalogByType, this.gridMap);
     this.financeSystem = new FinanceSystem(this.gameState, this.saveManager);
     this.renderer = new DecorationRenderer(this.assetManager, this.gridMap);
-    this.camera = new Camera2D({ worldWidth: initDims.worldWidth, worldHeight: initDims.worldHeight });
+    const ws = this.worldGrid.getWorldSize();
+    this.camera = new Camera2D({ worldWidth: ws.width, worldHeight: ws.height });
     this.drawerOpen = false;
     this.detailOpen = false;
     
@@ -53,6 +54,7 @@ class DecorationEditorScene {
 
   enter() {
     this.draft = new DecorationDraft(this.gameState.getState(), this.ratingSystem);
+          console.log('[Decoration] expand: draft recreated, draftFurniture count=' + this.draft.draftFurniture.length);
     this.drawerOpen = false;
     this.detailOpen = false;
     
@@ -395,8 +397,10 @@ class DecorationEditorScene {
         if (!canExpand) return;
         const result = this.expansionSystem.expand();
         if (result.ok) {
-          this.draft = new DecorationDraft(this.gameState.getState(), this.ratingSystem);
+          this.draft.draftCash = this.gameState.getState().player.cash;
+          this.draft.recalculate();
           this.saveManager.save(this.gameState.getState());
+          this.drawerOpen = false;
           this.showToast('网吧面积扩大成功！面积: ' + result.afterArea.toLocaleString() + '㎡');
         }
         this.requestRender();
@@ -433,10 +437,11 @@ class DecorationEditorScene {
   }
 
   syncCameraBounds() {
-    const dims = this.boundsManager.refresh();
-    this.gridMap.columns = dims.columns;
-    this.gridMap.rows = dims.rows;
-    this.camera.setWorldSize(dims.worldWidth, dims.worldHeight);
+    const info = this.worldGrid.expand();
+    this.gridMap.columns = this.worldGrid.columns;
+    this.gridMap.rows = this.worldGrid.rows;
+    const size = this.worldGrid.getWorldSize();
+    this.camera.setWorldSize(size.width, size.height);
   }
 
   render() {
@@ -449,7 +454,7 @@ class DecorationEditorScene {
     this.mapBounds = rect(safe.x, safe.y + topH, safe.width, safe.height - topH - bottomH);
     const firstLayout = this.camera.viewportRect.width <= 1;
     if (!firstLayout) {
-      const ws = this.boundsManager.getWorldSize();
+      const ws = this.worldGrid.getWorldSize();
       this.camera.setWorldSize(ws.width, ws.height);
     }
     this.camera.setViewport(this.mapBounds);

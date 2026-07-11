@@ -11,6 +11,7 @@ const operatingConfig = require('../data/operatingConfig');
 const ExpansionSystem = require('../systems/ExpansionSystem');
 const MapSystem = require('../map/MapSystem');
 const MapBoundsManager = require('../map/MapBoundsManager');
+const WorldGridSystem = require('../map/WorldGridSystem');
 
 function rect(x, y, width, height) { return { x: x, y: y, width: width, height: height }; }
 function inside(point, box) { return point && point.x >= box.x && point.x <= box.x + box.width && point.y >= box.y && point.y <= box.y + box.height; }
@@ -25,17 +26,16 @@ class OverviewScene {
     this.requestRender = deps.requestRender || function () {};
     this.expansionSystem = new ExpansionSystem(deps.gameState, deps.saveManager);
     this.cellSize = 54;
-    this.boundsManager = new MapBoundsManager(this.expansionSystem, this.cellSize);
-    const initDimsOv = this.boundsManager.getDimensions();
-    this.gridMap = new GridMap(initDimsOv.columns, initDimsOv.rows);
+    this.worldGrid = new WorldGridSystem(this.expansionSystem, this.cellSize);
+    this.gridMap = new GridMap(this.worldGrid.columns, this.worldGrid.rows);
     this.decorationRenderer = new DecorationRenderer(this.assetManager, this.gridMap);
     this.deviceSystem = new DeviceSystem();
     this.operatingMetricsSystem = new OperatingMetricsSystem();
     const enableDebug = operatingConfig.DEBUG_BUSINESS_SIMULATION;
     this.debugPanel = enableDebug && deps.businessSimulation ? new BusinessDebugPanel(deps.businessSimulation, this.inputManager, this.requestRender) : null;
     this.camera = new Camera2D({
-      worldWidth: initDimsOv.worldWidth,
-      worldHeight: initDimsOv.worldHeight,
+      worldWidth: this.worldGrid.getWorldSize().width,
+      worldHeight: this.worldGrid.getWorldSize().height,
       minZoom: 0.66,
       maxZoom: 1.25
     });this.mapBounds = rect(0, 0, 1, 1);
@@ -211,7 +211,7 @@ class OverviewScene {
     const nextMapBounds = rect(bounds.x + padding, bodyY, mapWidth, bodyHeight);
     const sizeChanged = nextMapBounds.x !== this.mapBounds.x || nextMapBounds.y !== this.mapBounds.y || nextMapBounds.width !== this.mapBounds.width || nextMapBounds.height !== this.mapBounds.height;
     this.mapBounds = nextMapBounds;
-    const wsOv = this.boundsManager.getWorldSize();
+    const wsOv = this.worldGrid.getWorldSize();
     this.camera.setWorldSize(wsOv.width, wsOv.height);
     this.camera.setViewport(this.mapBounds);
     if (!this.hasLayout) { this.camera.fitToView(8); this.hasLayout = true; }
