@@ -82,14 +82,28 @@ class OverviewScene {
         this.assetManager.loadImage(key, wallPaths[key], () => this.requestRender());
       }
     });
+    var barKeyOv = 'bar_counter';
+    if (this.assetManager && !this.assetManager.hasImage(barKeyOv)) {
+      this.assetManager.loadImage(barKeyOv, 'assets/textures/furniture/bar_counter_01.png', () => this.requestRender());
+    }
+    this.worldGrid.init();
+    this.gridMap.columns = this.worldGrid.columns;
+    this.gridMap.rows = this.worldGrid.rows;
+    var syncSize = this.worldGrid.getWorldSize();
+    this.camera.setWorldSize(syncSize.width, syncSize.height);
+    var syncCamBounds = this.worldGrid.getCameraBounds();
+    this.camera.setViewPadding(syncCamBounds.paddingX, syncCamBounds.paddingY);
+    this.hasLayout = false;
     if (this.gameState && this.gameState.eventBus) {
       if (this._unsubMapExpanded) this._unsubMapExpanded();
       this._unsubMapExpanded = this.gameState.eventBus.on('mapExpanded', () => {
-        const dims = this.mapSystem.getDimensions();
-        this.gridMap.columns = dims.columns;
-        this.gridMap.rows = dims.rows;
-        const size = this.mapSystem.getWorldSize();
+        this.worldGrid.expand();
+        this.gridMap.columns = this.worldGrid.columns;
+        this.gridMap.rows = this.worldGrid.rows;
+        const size = this.worldGrid.getWorldSize();
         this.camera.setWorldSize(size.width, size.height);
+        var camBoundsOv2 = this.worldGrid.getCameraBounds();
+        this.camera.setViewPadding(camBoundsOv2.paddingX, camBoundsOv2.paddingY);
         this.hasLayout = false;
         this.requestRender();
       });
