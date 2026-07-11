@@ -99,8 +99,19 @@ class DecorationRenderer {
     const image = visual.spriteKey && this.assetManager ? this.assetManager.getImage(visual.spriteKey) : null;
     if (!image || !image.width || !image.height) return false;
     const scale = visual.renderScale || 1;
-    const width = Math.round(rect.width * scale);
-    const height = Math.round(rect.height * scale);
+    const cellW = rect.width * scale;
+    const cellH = rect.height * scale;
+    // 保持图片原始比例，适配到格子内
+    const imgRatio = image.width / image.height;
+    const cellRatio = cellW / cellH;
+    let width, height;
+    if (imgRatio > cellRatio) {
+      width = cellW;
+      height = Math.round(cellW / imgRatio);
+    } else {
+      height = cellH;
+      width = Math.round(cellH * imgRatio);
+    }
     const centerX = Math.round(rect.x + rect.width * (visual.anchorX == null ? 0.5 : visual.anchorX) + (visual.renderOffsetX || 0));
     const centerY = Math.round(rect.y + rect.height * (visual.anchorY == null ? 0.5 : visual.anchorY) + (visual.renderOffsetY || 0));
     context.save();
