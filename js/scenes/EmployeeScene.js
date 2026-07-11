@@ -38,7 +38,7 @@ class EmployeeScene {
     if (this.inputManager) this.inputManager.setGestureHandler(this.gestureHandler);
     const avatarKeys = ['保洁员_avatar', '双马尾少女_avatar', '外场_avatar', '店长_avatar', '收银_avatar', '阳光小青年_avatar'];
     avatarKeys.forEach(k => {
-      if (this.inputManager && !this.assetManager.hasImage(k)) {
+      if (this.assetManager && !this.assetManager.hasImage(k)) {
         this.assetManager.loadImage(k, 'assets/textures/employees/' + k + '.png', () => this.requestRender());
       }
     });
