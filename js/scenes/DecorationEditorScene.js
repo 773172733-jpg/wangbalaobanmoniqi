@@ -343,6 +343,15 @@ class DecorationEditorScene {
     this.devicePlacementData = null;
   }
 
+  button(context, id, box, label, enabled, action, selected, gold) {
+    const fill = !enabled ? '#263845' : (gold || selected ? '#b57a25' : '#102b3d');
+    CanvasUtils.fillRoundedRect(context, box, 5, fill);
+    CanvasUtils.strokeRoundedRect(context, box, 5, enabled && (gold || selected) ? '#f3cc67' : '#3a5362', 1);
+    context.fillStyle = enabled ? '#f8f1db' : '#738591'; context.font = 'bold 11px sans-serif'; context.textAlign = 'center';
+    context.fillText(label, box.x + box.width / 2, box.y + box.height / 2 + 4);
+    if (enabled) this.inputManager.register(id, box, action);
+  }
+
   drawTop(context, box) {
     context.fillStyle = '#0b1e2d'; context.fillRect(box.x, box.y, box.width, box.height);
     this.button(context, 'editor:back', rect(box.x + 6, box.y + 1, 48, Math.max(40, box.height - 2)), '← 返回', true, () => this.requestExit());
