@@ -28,8 +28,8 @@
     }
   },
   "compileType": "game",
-  "libVersion": "3.6.4",
-  "appid": "touristappid",
+  "libVersion": "3.16.2",
+  "appid": "wxb060513dc4e682f0",
   "projectname": "internet-cafe-owner-simulator",
   "condition": {},
   "simulatorPluginLibVersion": {},

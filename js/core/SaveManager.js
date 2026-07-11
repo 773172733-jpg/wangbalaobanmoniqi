@@ -1,12 +1,13 @@
 'use strict';
 
 const STORAGE_KEY = 'internetCafeOwnerSave';
-const CURRENT_VERSION = 3;
+const CURRENT_VERSION = 4;
 const furnitureCatalog = require('../data/furnitureCatalog');
 const GridMap = require('../map/GridMap');
 const FurnitureManager = require('../map/FurnitureManager');
 const RatingSystem = require('../systems/RatingSystem');
 const DeviceSystem = require('../systems/DeviceSystem');
+const EmployeeSystem = require('../systems/EmployeeSystem');
 
 function clone(value) {
   return JSON.parse(JSON.stringify(value));
@@ -42,6 +43,7 @@ class SaveManager {
     this.furnitureManager = new FurnitureManager(this.catalogByType, this.gridMap);
     this.ratingSystem = new RatingSystem();
     this.deviceSystem = new DeviceSystem();
+    this.employeeSystem = new EmployeeSystem();
   }
 
   load() {
@@ -81,6 +83,7 @@ class SaveManager {
     let migrated = clone(savedData);
     if (version < 2) migrated = this.migrateV1ToV2(migrated);
     if (version < 3) migrated = this.migrateV2ToV3(migrated);
+    if (version < 4) migrated = this.migrateV3ToV4(migrated);
     if (version > CURRENT_VERSION) {
       console.warn('[存档] 检测到更高版本存档，将使用兼容字段读取');
     }
@@ -102,6 +105,13 @@ class SaveManager {
     return data;
   }
 
+  migrateV3ToV4(data) {
+    if (!Array.isArray(data.employees)) data.employees = [];
+    if (!isPlainObject(data.employeeMarket)) data.employeeMarket = { refreshTime: '', candidates: [] };
+    if (!Array.isArray(data.employeeMarket.candidates)) data.employeeMarket.candidates = [];
+    return data;
+  }
+
   normalize(data) {
     const merged = mergeDefaults(this.defaultState, data);
     merged.saveVersion = CURRENT_VERSION;
@@ -109,9 +119,13 @@ class SaveManager {
     merged.devices = this.deviceSystem.convertLegacyDevices(data && data.devices);
     const normalizedDevices = this.deviceSystem.sanitizeDevices(merged.devices, merged.furniture);
     merged.devices = normalizedDevices.devices;
+    if (!Array.isArray(merged.employees)) merged.employees = [];
+    if (!isPlainObject(merged.employeeMarket)) merged.employeeMarket = { refreshTime: '', candidates: [] };
+    if (!Array.isArray(merged.employeeMarket.candidates)) merged.employeeMarket.candidates = [];
     normalizedDevices.warnings.forEach((message) => console.warn('[存档] ' + message));
     const deviceScore = this.deviceSystem.calculateScore(merged.devices);
-    const ratings = this.ratingSystem.combineDeviceRating(this.ratingSystem.calculate(merged.furniture), deviceScore);
+    let ratings = this.ratingSystem.combineDeviceRating(this.ratingSystem.calculate(merged.furniture), deviceScore);
+    ratings = this.ratingSystem.combineEmployeeRating(ratings, this.employeeSystem.getServiceScore(merged));
     merged.cafe = Object.assign({}, merged.cafe, ratings);
     return merged;
   }

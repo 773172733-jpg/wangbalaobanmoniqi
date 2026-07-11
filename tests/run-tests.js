@@ -8,6 +8,7 @@ const SaveManager = require('../js/core/SaveManager');
 const DeviceSystem = require('../js/systems/DeviceSystem');
 const Camera2D = require('../js/map/Camera2D');
 const Game = require('../js/core/Game');
+const EmployeeSystem = require('../js/systems/EmployeeSystem');
 
 function clone(value) { return JSON.parse(JSON.stringify(value)); }
 
@@ -55,7 +56,7 @@ function testMigrationAndRecovery() {
   } });
   const manager = new SaveManager(initialState);
   const loaded = manager.load();
-  assert.strictEqual(loaded.saveVersion, 3);
+  assert.strictEqual(loaded.saveVersion, 4);
   assert.strictEqual(loaded.player.cash, 43210);
   assert.strictEqual(loaded.player.level, 4);
   assert.strictEqual(loaded.furniture.length, 1);
@@ -63,12 +64,52 @@ function testMigrationAndRecovery() {
   assert.strictEqual(loaded.devices.basic_pc.installed, 1);
   assert.strictEqual(loaded.devices.basic_pc.level, 5);
   assert.strictEqual(loaded.devices.basic_pc.condition, 0);
+  assert.deepStrictEqual(loaded.employees, []);
+  assert.ok(Array.isArray(loaded.employeeMarket.candidates));
 
   global.wx = createWx({ storage: '{broken-json' });
   const recovered = new SaveManager(initialState).load();
-  assert.strictEqual(recovered.saveVersion, 3);
+  assert.strictEqual(recovered.saveVersion, 4);
   assert.strictEqual(recovered.player.cash, 50000);
   assert.ok(recovered.devices.basic_pc);
+}
+
+function testEmployeeRules() {
+  global.wx = createWx();
+  const saveManager = new SaveManager(initialState);
+  const gameState = new GameState(saveManager.createNew(), new EventBus());
+  const sequence = [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9];
+  let index = 0;
+  const system = new EmployeeSystem(gameState, saveManager, () => sequence[index++ % sequence.length]);
+
+  assert.strictEqual(system.getServiceScore(), 40);
+  const market = system.ensureMarket(false);
+  assert.ok(market.candidates.length >= 3 && market.candidates.length <= 5);
+  assert.strictEqual(market.refreshTime, '1-1-1');
+  const firstIds = market.candidates.map((item) => item.id).join(',');
+  assert.strictEqual(system.ensureMarket(false).candidates.map((item) => item.id).join(','), firstIds);
+
+  const candidate = gameState.getState().employeeMarket.candidates[0];
+  const beforeCash = gameState.getState().player.cash;
+  assert.ok(system.hire(candidate.id).ok);
+  assert.strictEqual(gameState.getState().employees.length, 1);
+  assert.strictEqual(gameState.getState().player.cash, beforeCash - candidate.salary);
+  assert.ok(system.getDailySalary() > 0);
+  assert.ok(system.getServiceScore() !== 40);
+  const salary = system.getMonthlySalary();
+  const employeeId = gameState.getState().employees[0].id;
+  system.processWorkDay();
+  assert.strictEqual(gameState.getState().employees[0].experience, 5);
+
+  const reloaded = saveManager.load();
+  assert.strictEqual(reloaded.employees.length, 1);
+  assert.strictEqual(reloaded.employees[0].id, employeeId);
+  assert.ok(system.dismiss(employeeId).ok);
+  assert.strictEqual(system.getMonthlySalary(), 0);
+  assert.ok(salary > system.getMonthlySalary());
+
+  const source = require('fs').readFileSync(require('path').join(__dirname, '../js/systems/EmployeeSystem.js'), 'utf8');
+  ['pathfinding', 'collision', 'NPC', '寻路', '碰撞'].forEach((term) => assert.strictEqual(source.indexOf(term), -1));
 }
 
 function testDeviceRules() {
@@ -162,6 +203,7 @@ function testRuntimeAtSize(width, height, pixelRatio) {
 function run() {
   testMigrationAndRecovery();
   testDeviceRules();
+  testEmployeeRules();
   testCamera();
   const area = testRuntimeAtSize(844, 390, 3);
   testRuntimeAtSize(667, 375, 2);

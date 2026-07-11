@@ -29,7 +29,7 @@ class MainScene {
     this.scenes = {
       overview: new OverviewScene(sceneDependencies),
       device: new DeviceScene(sceneDependencies),
-      employee: new EmployeeScene(),
+      employee: new EmployeeScene(sceneDependencies),
       marketing: new MarketingScene(),
       finance: new FinanceScene()
     };

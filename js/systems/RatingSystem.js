@@ -69,6 +69,12 @@ class RatingSystem {
     result.equipment = clamp(result.layoutEquipment + result.deviceEquipment);
     return recomputeOverall(result);
   }
+
+  combineEmployeeRating(ratings, serviceScore) {
+    const result = Object.assign({}, ratings);
+    result.service = clamp(serviceScore === undefined ? 40 : serviceScore);
+    return recomputeOverall(result);
+  }
 }
 
 RatingSystem.catalogByType = catalogByType;
