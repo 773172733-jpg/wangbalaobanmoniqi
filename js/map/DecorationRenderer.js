@@ -204,66 +204,50 @@ class DecorationRenderer {
     var configs = this.getWallConfigs();
     var self = this;
     var cell = cellSize || 40;
-    // 所有墙体统一使用 grid 左上角作为 anchor
-    var corners = walls.filter(function(w) { return w.type === 'wall_corner'; });
-    var edges = walls.filter(function(w) { return w.type !== 'wall_corner'; });
-
+    // 先画转角(底层)，再画横竖墙(上层)
+    var corners = walls.filter(function(w) { return w.type === "wall_corner"; });
+    var edges = walls.filter(function(w) { return w.type !== "wall_corner"; });
     function drawOne(wall) {
       var cfg = configs[wall.type];
       if (!cfg) return;
       var image = self.assetManager ? self.assetManager.getImage(cfg.spriteKey) : null;
-      // grid 左上角 → 屏幕坐标
-      var px = camera.worldToScreen(wall.gridX * cell, wall.gridY * cell);
-      var gs = Math.round(cell * camera.zoom);
-
+      var p = camera.worldToScreen(wall.gridX * cell, wall.gridY * cell);
       if (image && image.width && image.height) {
         context.save();
         context.imageSmoothingEnabled = false;
+        // 使用原图比例，以格子大小为准缩放
         var s = (cfg.renderScale || 1) * camera.zoom;
         var dw = Math.round(image.width * s);
         var dh = Math.round(image.height * s);
-        // anchor = grid 左上角
-        var ax = Math.round(px.x);
-        var ay = Math.round(px.y);
-
-        // 转角偏移补偿：旋转后重新对齐连接点
-        var ox = 0, oy = 0;
-        if (wall.type === 'wall_corner') {
-          var rot = (wall.rotation || 0) % 360;
-          if (rot === 0)   { ox = 0;       oy = 0; }
-          if (rot === 90)  { ox = -dw + gs; oy = 0; }
-          if (rot === 180) { ox = -dw + gs; oy = -dh + gs; }
-          if (rot === 270) { ox = 0;       oy = -dh + gs; }
-        }
-        // 横竖墙镜像偏移
-        if (wall.flipH) { ox -= dw - gs; }
-        if (wall.flipV) { oy -= dh - gs; }
-
-        context.translate(ax - ox, ay - oy);
-        // 翻转
+        var cx = Math.round(p.x + cell * camera.zoom / 2);
+        var cy = Math.round(p.y + cell * camera.zoom / 2);
+        context.translate(cx, cy);
         var sx = wall.flipH ? -1 : 1;
         var sy = wall.flipV ? -1 : 1;
-        if (sx < 0 || sy < 0) {
-          context.translate(sx < 0 ? dw : 0, sy < 0 ? dh : 0);
-          context.scale(sx, sy);
-          context.translate(sx < 0 ? -dw : 0, sy < 0 ? -dh : 0);
+        context.scale(sx, sy);
+        context.rotate((wall.rotation || 0) * Math.PI / 180);
+        // 转角微调偏移，使L型拐点对齐墙体
+        var cox = 0, coy = 0;
+        if (wall.type === "wall_corner") {
+          var rot = (wall.rotation || 0) % 360;
+          var gs = Math.round(cell * camera.zoom);
+          if (rot === 0)   { cox = Math.round(gs * 0.25); coy = Math.round(gs * 0.25); }
+          if (rot === 90)  { cox = Math.round(-gs * 0.25); coy = Math.round(gs * 0.25); }
+          if (rot === 180) { cox = Math.round(-gs * 0.25); coy = Math.round(-gs * 0.25); }
+          if (rot === 270) { cox = Math.round(gs * 0.25); coy = Math.round(-gs * 0.25); }
         }
-        // 旋转（仅转角）
-        if (wall.type === 'wall_corner' && wall.rotation) {
-          context.translate(gs / 2, gs / 2);
-          context.rotate(wall.rotation * Math.PI / 180);
-          context.translate(-gs / 2, -gs / 2);
-        }
-        context.drawImage(image, 0, 0, dw, dh);
+        context.drawImage(image, Math.round(-dw / 2 + cox), Math.round(-dh / 2 + coy), dw, dh);
         context.restore();
       } else {
-        context.fillStyle = wall.type === 'wall_corner' ? '#5c4a3a' : '#4a3c2f';
-        context.fillRect(Math.round(px.x), Math.round(px.y), gs, gs);
+        var s = Math.round(cell * camera.zoom);
+        context.fillStyle = wall.type === "wall_corner" ? "#5c4a3a" : "#4a3c2f";
+        context.fillRect(Math.round(p.x), Math.round(p.y), s, s);
       }
     }
     corners.forEach(drawOne);
     edges.forEach(drawOne);
   }
+
   drawViewport(context, camera, furniture, options) {
     const settings = Object.assign({ cellSize: 60, showGrid: true, selectedId: null, preview: null, previewValid: true }, options || {});
     const view = camera.viewportRect;
