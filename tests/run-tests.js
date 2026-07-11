@@ -71,8 +71,8 @@ function testMigrationAndRecovery() {
   assert.strictEqual(loaded.player.cash, 43210);
   assert.strictEqual(loaded.player.level, 4);
   assert.strictEqual(loaded.furniture.length, 1);
-  assert.strictEqual(loaded.devices.basic_pc.owned, 1);
-  assert.strictEqual(loaded.devices.basic_pc.installed, 1);
+  assert.strictEqual(loaded.devices.basic_pc.owned, 2);
+  assert.strictEqual(loaded.devices.basic_pc.installed, 2);
   assert.strictEqual(loaded.devices.basic_pc.level, 5);
   assert.strictEqual(loaded.devices.basic_pc.condition, 0);
   assert.deepStrictEqual(loaded.employees, []);
@@ -330,11 +330,11 @@ function testDeviceRules() {
 
   assert.ok(system.purchase('basic_pc').ok);
   assert.ok(system.install('basic_pc').ok); // install is no-op after purchase
-  assert.strictEqual(gameState.getState().devices.basic_pc.installed, 1); // capped by desk count
+  assert.strictEqual(gameState.getState().devices.basic_pc.installed, 2); // no desk cap, all owned are installed
   const owned = gameState.getState().devices.basic_pc.owned;
   assert.ok(system.uninstall('basic_pc').ok);
   assert.strictEqual(gameState.getState().devices.basic_pc.owned, owned);
-  assert.strictEqual(gameState.getState().devices.basic_pc.installed, 1); // uninstall is no-op, installed unchanged
+  assert.strictEqual(gameState.getState().devices.basic_pc.installed, 2); // uninstall is no-op, installed unchanged
 
   const beforeUpgrade = gameState.getState().player.cash;
   assert.ok(system.upgrade('basic_pc').ok);
