@@ -1,4 +1,4 @@
-﻿'use strict';
+﻿﻿'use strict';
 
 const CanvasUtils = require('../ui/CanvasUtils');
 const Camera2D = require('../map/Camera2D');
@@ -12,6 +12,7 @@ const WorldGridSystem = require('../map/WorldGridSystem');
 const catalog = require('../data/furnitureCatalog');
 const FinanceSystem = require('../systems/FinanceSystem');
 const ExpansionSystem = require('../systems/ExpansionSystem');
+const equipmentCatalog = require('../data/equipmentCatalog');
 const MapSystem = require('../map/MapSystem');
 const VersionDisplay = require('../ui/VersionDisplay');
 
@@ -56,9 +57,26 @@ class DecorationEditorScene {
 
   enter() {
     this.draft = new DecorationDraft(this.gameState.getState(), this.ratingSystem);
+
+    // 检测设备放置模式
+    const enterState = this.gameState.getState();
+    if (enterState.pendingDevicePlacement) {
+      this.devicePlacementMode = true;
+      this.devicePlacementData = enterState.pendingDevicePlacement;
+      delete enterState.pendingDevicePlacement;
+      const deskMap = { basic_pc: 'standard_pc_desk', gaming_pc: 'double_gaming_desk', premium_pc: 'vip_pc_set' };
+      const deskType = deskMap[this.devicePlacementData.type] || 'standard_pc_desk';
+      this._prePlacementDeskCount = (enterState.furniture || []).filter(function(f) { return f && f.type === deskType; }).length;
+      this.draft.selectCatalog(deskType);
+      this.drawerOpen = true;
+      this.category = '设备';
+      this.detailOpen = true;
+      this.showToast('请拖动' + this.devicePlacementData.name + '到地图上放置');
+    } else {
+      this.drawerOpen = false;
+      this.detailOpen = false;
+    }
           console.log('[Decoration] expand: draft recreated, draftFurniture count=' + this.draft.draftFurniture.length);
-    this.drawerOpen = false;
-    this.detailOpen = false;
     
     this.gesture = null;
     if (this.gameState && this.gameState.eventBus) {
@@ -263,23 +281,66 @@ class DecorationEditorScene {
   showConfirm(text, actions) { this.draft.confirm = { text, actions }; this.requestRender(); }
 
   requestExit() {
+    // 设备放置模式：自动保存并处理购买
+    if (this.devicePlacementMode) {
+      if (this.draft.dirty) {
+        this.savePlan(false);
+      }
+      this.completeDevicePurchase();
+      this.leave(); this.onExit();
+      return;
+    }
     if (!this.draft.dirty) { this.exitToMain(); return; }
     this.showConfirm('当前装修方案尚未保存。', [
-      { label: '继续装修', action: () => {} },
-      { label: '放弃修改', action: () => { this.draft.resetFromState(this.gameState.getState()); this.exitToMain(); } },
-      { label: '保存并退出', action: () => this.savePlan(true), gold: true }
+      { label: '继续装修', action: function() {} },
+      { label: '放弃修改', action: function() { this.draft.resetFromState(this.gameState.getState()); this.exitToMain(); }.bind(this) },
+      { label: '保存并退出', action: function() { this.savePlan(true); }.bind(this), gold: true }
     ]);
   }
 
-  exitToMain() { this.leave(); this.onExit(); }
+  exitToMain() {
+    if (this.devicePlacementMode && this.devicePlacementData) {
+      this.completeDevicePurchase();
+    }
+    this.leave(); this.onExit();
+  }
 
-  button(context, id, box, label, enabled, action, selected, gold) {
-    const fill = !enabled ? '#263845' : (gold || selected ? '#b57a25' : '#102b3d');
-    CanvasUtils.fillRoundedRect(context, box, 5, fill);
-    CanvasUtils.strokeRoundedRect(context, box, 5, enabled && (gold || selected) ? '#f3cc67' : '#3a5362', 1);
-    context.fillStyle = enabled ? '#f8f1db' : '#738591'; context.font = 'bold 11px sans-serif'; context.textAlign = 'center';
-    context.fillText(label, box.x + box.width / 2, box.y + box.height / 2 + 4);
-    if (enabled) this.inputManager.register(id, box, action);
+  completeDevicePurchase() {
+    const data = this.devicePlacementData;
+    const state = this.gameState.getState();
+    if (!data) return;
+    
+    const deskMap = { basic_pc: 'standard_pc_desk', gaming_pc: 'double_gaming_desk', premium_pc: 'vip_pc_set' };
+    const deskType = deskMap[data.type] || 'standard_pc_desk';
+    const newDeskCount = (state.furniture || []).filter(function(f) { return f && f.type === deskType; }).length;
+    const preCount = this._prePlacementDeskCount || 0;
+    
+    if (newDeskCount <= preCount) {
+      this.showToast('未放置' + data.name + '，购买已取消');
+      this.devicePlacementMode = false;
+      this.devicePlacementData = null;
+      return;
+    }
+    
+    // 扣除资金（家具已由savePlan保存）
+    state.player.cash -= data.price;
+    
+    // 记录财务交易
+    const FinanceSystem = require('../systems/FinanceSystem');
+    const fs2 = new FinanceSystem(this.gameState, this.saveManager);
+    fs2.recordExpense({
+      category: 'equipment_purchase',
+      amount: data.price,
+      sourceSystem: 'device',
+      sourceId: data.type,
+      description: 'Purchase ' + data.name + ' (placed via decoration)',
+      successMessage: '',
+      mutate: function() {}
+    });
+    this.saveManager.save(state);
+    this.showToast(data.name + '购买成功！');
+    this.devicePlacementMode = false;
+    this.devicePlacementData = null;
   }
 
   drawTop(context, box) {

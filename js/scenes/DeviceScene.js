@@ -1,4 +1,4 @@
-﻿'use strict';
+﻿﻿'use strict';
 
 const CanvasUtils = require('../ui/CanvasUtils');
 const DeviceSystem = require('../systems/DeviceSystem');
@@ -151,14 +151,14 @@ class DeviceScene {
           this.requestRender();
           return;
         }
-        this.ensureMapReady();
-        this.placementMode = true;
-        this.placementType = this.selectedType;
-        this.placementGridCell = null;
-        this.placementCell = null;
-        this.placementValid = false;
-        this.toast = '请在地图上点击选择电脑放置位置';
-        this.requestRender();
+        // 跳转到装修编辑器进行拖放放置
+        state.pendingDevicePlacement = { type: this.selectedType, price: price, name: config.name };
+        if (this.onOpenDecorationEditor) {
+          this.onOpenDecorationEditor();
+        } else {
+          this.toast = '装修入口未就绪';
+          this.requestRender();
+        }
         return;
       }
     }
