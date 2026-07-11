@@ -283,7 +283,12 @@ class DeviceScene {
     const buttonH = 40;
     const actionY = box.y + box.height - buttonH * 2 - gap - 7;
     const upgradeCost = config.upgradeBasePrice * record.level;
-    const actions = [
+    const isComputer = config.requiresComputerSlot;
+    const actions = isComputer ? [
+      ['售出1台', record.owned > 0, 'sell'],
+      ['升级 ¥' + upgradeCost.toLocaleString(), record.owned > 0 && record.level < config.maxLevel, 'upgrade'],
+      ['维修', record.condition < 100, 'repair']
+    ] : [
       ['购买1台', true, 'purchase', true],
       ['售出1台', record.owned > 0, 'sell'],
       ['升级 ¥' + upgradeCost.toLocaleString(), record.owned > 0 && record.level < config.maxLevel, 'upgrade'],
@@ -295,6 +300,10 @@ class DeviceScene {
       const buttonBox = rect(box.x + 8 + column * (buttonW + gap), actionY + row * (buttonH + gap), buttonW, buttonH);
       this.button(context, 'device:action:' + action[2], buttonBox, action[0], action[1], () => this.perform(action[2]), false, action[3]);
     });
+    if (config.requiresComputerSlot) {
+      context.fillStyle = '#72c5e8'; context.font = '8px sans-serif'; context.textAlign = 'left';
+      context.fillText('购买电脑请前往 装修 → 电脑', box.x + 10, actionY - 7);
+    }
     if (this.toast) {
       const warning = this.toast.indexOf('不足') >= 0 || this.toast.indexOf('没有') >= 0 || this.toast.indexOf('最高') >= 0;
       context.fillStyle = warning ? '#e68a56' : '#72c984'; context.font = '8px sans-serif'; context.textAlign = 'left';

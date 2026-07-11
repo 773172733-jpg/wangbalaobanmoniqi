@@ -208,11 +208,18 @@ class DecorationEditorScene {
     if (!item || !validation.ok) { this.draft.setToast(item ? validation.reason : '请先选择摆放位置'); this.requestRender(); return; }
     if (this.draft.currentMode === 'place') {
       const config = this.catalogByType[item.type];
-      if (this.draft.draftCash < config.price) { this.draft.setToast('现金不足'); this.requestRender(); return; }
+      const isComputerPurchase = !!this._computerPurchase;
+      const price = isComputerPurchase ? this._computerPurchase.price : config.price;
+      if (this.draft.draftCash < price) { this.draft.setToast('现金不足'); this.requestRender(); return; }
       const created = this.furnitureManager.create(item.type, item.gridX, item.gridY, item.rotation);
       this.draft.draftFurniture = this.furnitureManager.add(this.draft.draftFurniture, created);
-      this.draft.draftCash -= config.price;
-      this.draft.financeEntries.push({ direction: 'expense', category: 'furniture_purchase', amount: config.price, sourceSystem: 'decoration', sourceId: created.id, description: '购买' + config.name });
+      this.draft.draftCash -= price;
+      if (isComputerPurchase) {
+        this.draft.financeEntries.push({ direction: 'expense', category: 'equipment_purchase', amount: price, sourceSystem: 'device', sourceId: this._computerPurchase.type, description: '购买' + this._computerPurchase.name });
+        this._computerPurchase = null;
+      } else {
+        this.draft.financeEntries.push({ direction: 'expense', category: 'furniture_purchase', amount: price, sourceSystem: 'decoration', sourceId: created.id, description: '购买' + config.name });
+      }
       this.draft.selectedFurnitureId = created.id;
       this.detailOpen = true;
     } else {
@@ -369,7 +376,7 @@ class DecorationEditorScene {
     CanvasUtils.fillRoundedRect(context, box, 7, '#0d2232'); CanvasUtils.strokeRoundedRect(context, box, 7, '#d3a845', 1);
     context.fillStyle = '#f3d47d'; context.font = 'bold 13px sans-serif'; context.textAlign = 'left'; context.fillText('家具库', box.x + 12, box.y + 22);
     this.button(context, 'drawer:close', rect(box.x + box.width - 46, box.y + 2, 40, 40), '×', true, () => { this.drawerOpen = false; this.requestRender(); });
-    const categories = ['家具', '装饰', '设备', '扩建'];
+    const categories = ['家具', '装饰', '电脑', '扩建'];
     const tabW = (box.width - 16) / categories.length;
     categories.forEach((name, index) => this.button(context, 'drawer:cat:' + name, rect(box.x + 8 + index * tabW, box.y + 43, tabW - 3, 40), name, true, () => { this.category = name; this.catalogScroll = 0; this.requestRender(); }, this.category === name));
     const listTop = box.y + 90;
@@ -377,25 +384,53 @@ class DecorationEditorScene {
     const visibleH = box.y + box.height - listTop - 8;
     if (this.category === '扩建') {
       this.drawExpansionInDrawer(context, rect(box.x + 8, listTop, box.width - 16, visibleH));
+      context.restore();
       return;
     }
-    const allItems = this.category === '全部' ? catalog : catalog.filter((item) => item.category === this.category);
+    if (this.category === '电脑') {
+      // 显示设备目录中的电脑购买项
+      const computerItems = equipmentCatalog.items.filter(function(item) { return item.requiresComputerSlot; });
+      const contentH = computerItems.length * (cardH + 6);
+      this.catalogScroll = Math.min(this.catalogScroll, Math.max(0, contentH - visibleH));
+      context.save(); context.beginPath(); context.rect(box.x + 5, listTop, box.width - 10, visibleH); context.clip();
+      computerItems.forEach(function(config, index) {
+        const card = rect(box.x + 8, listTop + index * (cardH + 6) - this.catalogScroll, box.width - 16, cardH);
+        if (card.y + card.height < listTop || card.y > listTop + visibleH) return;
+        CanvasUtils.fillRoundedRect(context, card, 5, '#132c3e'); CanvasUtils.strokeRoundedRect(context, card, 5, '#365265', 1);
+        context.fillStyle = config.visual.color; context.fillRect(card.x + 8, card.y + 14, 36, 28);
+        context.fillStyle = '#f4f0df'; context.font = 'bold 11px sans-serif'; context.textAlign = 'left'; context.fillText(config.name, card.x + 52, card.y + 18);
+        context.fillStyle = '#e5b84e'; context.font = '10px sans-serif'; context.fillText('¥' + config.purchasePrice.toLocaleString() + '  |  性能:' + config.performance + '  |  耗电:' + config.powerUsage + 'kW', card.x + 52, card.y + 36);
+        context.fillStyle = '#72c5e8'; context.font = '9px sans-serif'; context.fillText(config.description, card.x + 52, card.y + 52);
+        this.inputManager.register('drawer:pc:' + config.type, card, function() {
+          var deskMap = { basic_pc: 'standard_pc_desk', gaming_pc: 'double_gaming_desk', premium_pc: 'vip_pc_set' };
+          var deskType = deskMap[config.type] || 'standard_pc_desk';
+          this.draft.selectCatalog(deskType);
+          this._computerPurchase = { type: config.type, price: config.purchasePrice, name: config.name };
+          this.drawerOpen = false;
+          this.detailOpen = true;
+          this.requestRender();
+        }.bind(this));
+      }.bind(this));
+      context.restore();
+      return;
+    }
+    const allItems = this.category === '全部' ? catalog : catalog.filter(function(item) { return item.category === this.category; }.bind(this));
     const hiddenTypes = ['standard_pc_desk', 'double_gaming_desk', 'vip_pc_set'];
-    const items = allItems.filter((item) => item.category !== '电脑' && !hiddenTypes.includes(item.type));
+    const items = allItems.filter(function(item) { return item.category !== '电脑' && !hiddenTypes.includes(item.type); });
     const contentH = items.length * (cardH + 6);
     this.catalogScroll = Math.min(this.catalogScroll, Math.max(0, contentH - visibleH));
     context.save(); context.beginPath(); context.rect(box.x + 5, listTop, box.width - 10, visibleH); context.clip();
-    items.forEach((item, index) => {
+    items.forEach(function(item, index) {
       const card = rect(box.x + 8, listTop + index * (cardH + 6) - this.catalogScroll, box.width - 16, cardH);
       if (card.y + card.height < listTop || card.y > listTop + visibleH) return;
       CanvasUtils.fillRoundedRect(context, card, 5, '#132c3e'); CanvasUtils.strokeRoundedRect(context, card, 5, '#365265', 1);
       context.fillStyle = (item.visual && item.visual.fallbackStyle.body) || item.renderStyle.body; context.fillRect(card.x + 8, card.y + 14, 36, 28);
       context.fillStyle = '#f4f0df'; context.font = 'bold 11px sans-serif'; context.textAlign = 'left'; context.fillText(item.name, card.x + 52, card.y + 18);
       context.fillStyle = '#90a6b3'; context.font = '10px sans-serif'; context.fillText('¥' + item.price + '  ·  ' + item.width + '×' + item.height + '格', card.x + 52, card.y + 36);
-      const bonus = Object.keys(item.ratingBonus).find((key) => item.ratingBonus[key] > 0);
+      const bonus = Object.keys(item.ratingBonus).find(function(key) { return item.ratingBonus[key] > 0; });
       context.fillStyle = '#d8b65b'; context.fillText(bonus ? bonus + ' +' + item.ratingBonus[bonus] : '装饰家具', card.x + 52, card.y + 52);
-      this.inputManager.register('drawer:item:' + item.type, card, () => { this.draft.selectCatalog(item.type); this.drawerOpen = false; this.detailOpen = true; this.requestRender(); });
-    });
+      this.inputManager.register('drawer:item:' + item.type, card, function() { this.draft.selectCatalog(item.type); this.drawerOpen = false; this.detailOpen = true; this.requestRender(); }.bind(this));
+    }.bind(this));
     context.restore();
   }
   drawDetails(context, view) {
