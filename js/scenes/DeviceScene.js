@@ -1,9 +1,13 @@
-﻿﻿'use strict';
+﻿'use strict';
 
 const CanvasUtils = require('../ui/CanvasUtils');
 const DeviceSystem = require('../systems/DeviceSystem');
 const equipmentCatalog = require('../data/equipmentCatalog');
 const ExpansionSystem = require('../systems/ExpansionSystem');
+const GridMap = require('../map/GridMap');
+const WorldGridSystem = require('../map/WorldGridSystem');
+const DecorationRenderer = require('../map/DecorationRenderer');
+const Camera2D = require('../map/Camera2D');
 
 function rect(x, y, width, height) { return { x: x, y: y, width: width, height: height }; }
 function inside(point, box) { return point && point.x >= box.x && point.x <= box.x + box.width && point.y >= box.y && point.y <= box.y + box.height; }
@@ -14,6 +18,7 @@ class DeviceScene {
     const deps = dependencies || {};
     this.title = '设备管理';
     this.inputManager = deps.inputManager;
+    this.gameState = deps.gameState;
     this.gameState = deps.gameState;
     this.assetManager = deps.assetManager || null;
     this.requestRender = deps.requestRender || function () {};
@@ -68,6 +73,19 @@ class DeviceScene {
   leave() {
     this.inputManager.clearGestureHandler(this.gestureHandler);
     this.gesture = null;
+  }
+
+  ensureMapReady() {
+    if (this.worldGrid) return;
+    try {
+      this.worldGrid = new WorldGridSystem(this.expansionSystem, 40);
+      this.gridMap = new GridMap(this.worldGrid.columns, this.worldGrid.rows);
+      this.renderer = new DecorationRenderer(this.assetManager, this.gridMap);
+      const ws = this.worldGrid.getWorldSize();
+      this.camera = new Camera2D({ worldWidth: ws.width, worldHeight: ws.height });
+    } catch (e) {
+      console.log('[DeviceScene] map init error:', e.message);
+    }
   }
 
   point(touch) { return touch ? { x: touch.clientX, y: touch.clientY } : null; }
