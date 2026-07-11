@@ -39,12 +39,16 @@ class DeviceScene {
     this.placementMode = false;
     this.placementType = null;
     this.placementGridCell = null;
-    if (!this.worldGrid) {
-      this.worldGrid = new WorldGridSystem(this.expansionSystem, 40);
-      this.gridMap = new GridMap(this.worldGrid.columns, this.worldGrid.rows);
-      this.renderer = new DecorationRenderer(this.assetManager, this.gridMap);
-      const ws = this.worldGrid.getWorldSize();
-      this.camera = new Camera2D({ worldWidth: ws.width, worldHeight: ws.height });
+    try {
+      if (!this.worldGrid) {
+        this.worldGrid = new WorldGridSystem(this.expansionSystem, 40);
+        this.gridMap = new GridMap(this.worldGrid.columns, this.worldGrid.rows);
+        this.renderer = new DecorationRenderer(this.assetManager, this.gridMap);
+        const ws = this.worldGrid.getWorldSize();
+        this.camera = new Camera2D({ worldWidth: ws.width, worldHeight: ws.height });
+      }
+    } catch (e) {
+      console.log('[DeviceScene] map init deferred:', e.message);
     }
     equipmentCatalog.items.forEach((item) => {
       const visual = item.visual || {};
@@ -128,7 +132,6 @@ class DeviceScene {
           this.requestRender();
           return;
         }
-        this.ensureMapReady();
         this.placementMode = true;
         this.placementType = this.selectedType;
         this.placementGridCell = null;
@@ -316,7 +319,7 @@ class DeviceScene {
     this.placementGridCell = null;
     this.cachedState = null;
     this.cachedSummary = null;
-    this.gameState.saveManager ? this.gameState.saveManager.save(state) : null;
+    this.deviceSystem.saveManager && this.deviceSystem.saveManager.save(state)
     this.requestRender();
   }
 
