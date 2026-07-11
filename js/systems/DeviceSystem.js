@@ -132,11 +132,19 @@ class DeviceSystem {
 
   getOperatingMetrics(state) {
     const root = state || (this.gameState && this.gameState.getState()) || {};
+    const deskMapDev = { standard_pc_desk: 'basic_pc', double_gaming_desk: 'gaming_pc', vip_pc_set: 'premium_pc' };
+    var furnitureDeviceCounts = {};
+    (Array.isArray(root.furniture) ? root.furniture : []).forEach(function(f) {
+      var dt = deskMapDev[f.type];
+      if (dt) furnitureDeviceCounts[dt] = (furnitureDeviceCounts[dt] || 0) + 1;
+    });
     const pools = [
       { tier: 'basic', type: 'basic_pc' }, { tier: 'gaming', type: 'gaming_pc' }, { tier: 'premium', type: 'premium_pc' }
     ].map((item) => {
       const config = this.catalog.byType[item.type]; const record = this.getRecord(root.devices, item.type);
-      return { tier: item.tier, count: record.installed, performance: Math.round(config.performance * (1 + (record.level - 1) * 0.15) * record.condition / 100), powerUsage: config.powerUsage };
+      var count = record.installed || 0;
+      if (count === 0) count = furnitureDeviceCounts[item.type] || 0;
+      return { tier: item.tier, count: count, performance: Math.round(config.performance * (1 + (record.level - 1) * 0.15) * record.condition / 100), powerUsage: config.powerUsage };
     });
     const router = this.getRecord(root.devices, 'gigabit_router'); const routerConfig = this.catalog.byType.gigabit_router;
     const ups = this.getRecord(root.devices, 'ups_power'); const upsConfig = this.catalog.byType.ups_power;

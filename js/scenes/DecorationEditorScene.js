@@ -293,7 +293,7 @@ class DecorationEditorScene {
 
   savePlan(exitAfter) {
     const furniture = JSON.parse(JSON.stringify(this.draft.draftFurniture));
-    const result = this.financeSystem.recordBatch(this.draft.financeEntries, (state) => { state.furniture = furniture; }, '装修方案已保存');
+    const result = this.financeSystem.recordBatch(this.draft.financeEntries, (state) => { state.furniture = furniture; const computerTypes = { standard_pc_desk: 'basic_pc', double_gaming_desk: 'gaming_pc', vip_pc_set: 'premium_pc' }; this.draft.financeEntries.filter(e => e.sourceSystem === 'device').forEach(e => { if (!state.devices) state.devices = {}; const pcType = e.sourceId; if (pcType && !state.devices[pcType]) state.devices[pcType] = { owned: 0, installed: 0, level: 1, condition: 100 }; if (pcType) { state.devices[pcType].owned += 1; state.devices[pcType].installed += 1; } }); }, '装修方案已保存');
     if (!result.ok) { this.draft.setToast(result.message); this.requestRender(); return; }
     this.draft.resetFromState(this.gameState.getState());
     if (exitAfter) this.exitToMain();
