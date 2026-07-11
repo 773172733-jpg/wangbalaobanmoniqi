@@ -655,11 +655,97 @@ function testDebugSaveReset() {
   assert.strictEqual(gameState.getState().saveVersion, 8);
 }
 
+
+function testExpansionPreservesFurniture() {
+  global.wx = createWx();
+  const saveManager = new SaveManager(initialState);
+  const raw = clone(initialState);
+  raw.player.cash = 5000000;
+  
+  // 1. Place 10 furniture items including edge positions
+  const testFurniture = [
+    { id: 'f1', type: 'standard_pc_desk', gridX: 0, gridY: 0, rotation: 0 },
+    { id: 'f2', type: 'standard_pc_desk', gridX: 4, gridY: 0, rotation: 0 },
+    { id: 'f3', type: 'standard_pc_desk', gridX: 8, gridY: 0, rotation: 0 },
+    { id: 'f4', type: 'standard_pc_desk', gridX: 8, gridY: 2, rotation: 0 },
+    { id: 'f5', type: 'standard_pc_desk', gridX: 0, gridY: 6, rotation: 0 },
+    { id: 'f6', type: 'standard_pc_desk', gridX: 4, gridY: 6, rotation: 0 },
+    { id: 'f7', type: 'standard_pc_desk', gridX: 5, gridY: 3, rotation: 0 },
+    { id: 'f8', type: 'standard_pc_desk', gridX: 0, gridY: 3, rotation: 0 },
+    { id: 'f9', type: 'plant', gridX: 2, gridY: 5, rotation: 0 },
+    { id: 'f10', type: 'trash_bin', gridX: 11, gridY: 2, rotation: 0 },
+  ];
+  raw.furniture = testFurniture;
+  const data = saveManager.normalize(raw);
+  const eventBus = new EventBus();
+  const gameState = new GameState(data, eventBus);
+  const expansionSystem = new ExpansionSystem(gameState, saveManager);
+  const mapSystem = new MapSystem(expansionSystem, 40);
+  
+  // 2. Record initial furniture state
+  const beforeFurniture = JSON.stringify(gameState.getState().furniture);
+  
+  // 3. Expand
+  gameState.getState().player.cash = 5000000;
+  const result = expansionSystem.expand();
+  assert.ok(result.ok, 'Expansion should succeed');
+  
+  // 4. Verify furniture count unchanged
+  const afterFurniture = gameState.getState().furniture;
+  assert.strictEqual(afterFurniture.length, testFurniture.length, 'Furniture count should not change after expansion');
+  
+  // 5. Verify each furniture position is preserved exactly
+  for (let i = 0; i < testFurniture.length; i++) {
+    const before = testFurniture[i];
+    const after = afterFurniture.find(f => f.id === before.id);
+    assert.ok(after, 'Furniture ' + before.id + ' should still exist');
+    assert.strictEqual(after.gridX, before.gridX, before.id + ' gridX should not change');
+    assert.strictEqual(after.gridY, before.gridY, before.id + ' gridY should not change');
+    assert.strictEqual(after.rotation, before.rotation, before.id + ' rotation should not change');
+  }
+  
+  // 6. Verify edge furniture is still valid in expanded grid
+  const gridMap = new GridMap(mapSystem.getColumns(), mapSystem.getRows());
+  const catalogByType = {};
+  const furnitureCatalog = require('../js/data/furnitureCatalog');
+  furnitureCatalog.forEach(item => { catalogByType[item.type] = item; });
+  
+  for (const item of afterFurniture) {
+    const validation = gridMap.validatePlacement(gameState.getState().furniture, catalogByType, item, item.id);
+    assert.ok(validation.ok, item.id + ' should still be valid after expansion: ' + validation.reason);
+  }
+  
+  // 7. Expand again and re-verify
+  gameState.getState().player.cash = 5000000;
+  expansionSystem.expand();
+  const gridMap2 = new GridMap(mapSystem.getColumns(), mapSystem.getRows());
+  for (const item of gameState.getState().furniture) {
+    const validation = gridMap2.validatePlacement(gameState.getState().furniture, catalogByType, item, item.id);
+    assert.ok(validation.ok, item.id + ' should remain valid after double expansion: ' + validation.reason);
+  }
+  
+  // 8. Verify new grid area is accessible (can place furniture in new zone)
+  const newEdgeItem = { id: 'f_new', type: 'standard_pc_desk', gridX: mapSystem.getColumns() - 2, gridY: 0, rotation: 0 };
+  const placeValidation = gridMap2.validatePlacement(gameState.getState().furniture, catalogByType, newEdgeItem, null);
+  assert.ok(placeValidation.ok, 'Should be able to place furniture in expanded area');
+  
+  // 9. Save, reload, verify furniture persists
+  saveManager.save(gameState.getState());
+  const reloaded = saveManager.load();
+  assert.strictEqual(reloaded.furniture.length, testFurniture.length, 'Furniture count should persist after reload');
+  const reloadedGridMap = new GridMap(mapSystem.getColumns(), mapSystem.getRows());
+  for (const item of reloaded.furniture) {
+    const validation = reloadedGridMap.validatePlacement(reloaded.furniture, catalogByType, item, item.id);
+    assert.ok(validation.ok, item.id + ' should be valid after reload: ' + validation.reason);
+  }
+}
+
 function run() {
   testMigrationAndRecovery();
   testExpansion();
   testExpansionMapLinkage();
   testDebugSaveReset();
+  testExpansionPreservesFurniture();
   testDeviceRules();
   testEmployeeRules();
   testMarketingRules();
