@@ -13,6 +13,7 @@ class EmployeeScene {
     const deps = dependencies || {};
     this.title = '员工管理';
     this.inputManager = deps.inputManager;
+    this.assetManager = deps.assetManager || null;
     this.requestRender = deps.requestRender || function () {};
     this.system = new EmployeeSystem(deps.gameState, deps.saveManager);
     this.tab = 'mine';
@@ -35,6 +36,12 @@ class EmployeeScene {
     this.scrollOffset = 0;
     this._isDragging = false;
     if (this.inputManager) this.inputManager.setGestureHandler(this.gestureHandler);
+    const avatarKeys = ['保洁员_avatar', '双马尾少女_avatar', '外场_avatar', '店长_avatar', '收银_avatar', '阳光小青年_avatar'];
+    avatarKeys.forEach(k => {
+      if (this.inputManager && !this.assetManager.hasImage(k)) {
+        this.assetManager.loadImage(k, 'assets/textures/employees/' + k + '.png', () => this.requestRender());
+      }
+    });
   }
 
   leave() {
@@ -117,7 +124,12 @@ class EmployeeScene {
     CanvasUtils.fillRoundedRect(context, box, 5, selected ? '#183b50' : '#122c3d'); CanvasUtils.strokeRoundedRect(context, box, 5, selected ? '#d8a947' : '#355063', 1);
     const avatar = rect(box.x + 7, box.y + 7, box.height - 14, box.height - 14);
     CanvasUtils.fillRoundedRect(context, avatar, 4, '#1a384e'); CanvasUtils.strokeRoundedRect(context, avatar, 4, '#2d5068', 1);
-    context.fillStyle = '#3a607a'; context.font = 'bold 12px sans-serif'; context.textAlign = 'center'; context.fillText(employee.name.slice(0, 1), avatar.x + avatar.width / 2, avatar.y + avatar.height / 2 + 4);
+    const avImg = employee.avatar && this.assetManager ? this.assetManager.getImage(employee.avatar) : null;
+    if (avImg && avImg.width) {
+      context.drawImage(avImg, avatar.x, avatar.y, avatar.width, avatar.height);
+    } else {
+      context.fillStyle = '#3a607a'; context.font = 'bold 12px sans-serif'; context.textAlign = 'center'; context.fillText(employee.name.slice(0, 1), avatar.x + avatar.width / 2, avatar.y + avatar.height / 2 + 4);
+    }
     const infoX = avatar.x + avatar.width + 8;
     context.textAlign = 'left'; context.fillStyle = '#f4f0df'; context.font = 'bold 11px sans-serif'; context.fillText(employee.name, infoX, box.y + 18);
     context.fillStyle = '#91a6b2'; context.font = '9px sans-serif'; context.fillText(roleName(employee.type) + ' · Lv.' + employee.level + ' · ¥' + employee.salary + '/月', infoX, box.y + 35);
@@ -187,7 +199,12 @@ class EmployeeScene {
       // 右侧头像预留区
       const avatarSize = Math.min(card.height - 14, card.width * 0.35); const avatar = rect(card.x + card.width - avatarSize - 8, card.y + 7, avatarSize, avatarSize);
       CanvasUtils.fillRoundedRect(context, avatar, 4, '#1a384e'); CanvasUtils.strokeRoundedRect(context, avatar, 4, '#2d5068', 1);
-      context.fillStyle = '#3a607a'; context.font = 'bold 10px sans-serif'; context.textAlign = 'center'; context.fillText('头像', avatar.x + avatar.width / 2, avatar.y + avatar.height / 2 + 3);
+      const avImg = candidate.avatar && this.assetManager ? this.assetManager.getImage(candidate.avatar) : null;
+      if (avImg && avImg.width) {
+        context.drawImage(avImg, avatar.x, avatar.y, avatar.width, avatar.height);
+      } else {
+        context.fillStyle = '#3a607a'; context.font = 'bold 10px sans-serif'; context.textAlign = 'center'; context.fillText('头像', avatar.x + avatar.width / 2, avatar.y + avatar.height / 2 + 3);
+      }
       // 名字 + 职位
       context.fillStyle = '#f4f0df'; context.font = 'bold 12px sans-serif'; context.textAlign = 'left'; context.fillText(candidate.name, card.x + 9, card.y + 20);
       context.fillStyle = '#91a6b2'; context.font = '9px sans-serif'; context.fillText(role.name, card.x + 12 + context.measureText(candidate.name).width, card.y + 21);

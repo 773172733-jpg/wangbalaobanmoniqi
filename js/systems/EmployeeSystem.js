@@ -1,4 +1,4 @@
-'use strict';
+﻿'use strict';
 
 const catalog = require('../data/employeeCatalog');
 const FinanceSystem = require('./FinanceSystem');
