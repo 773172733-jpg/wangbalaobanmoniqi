@@ -75,6 +75,10 @@ class DecorationEditorScene {
         this.assetManager.loadImage(visual.spriteKey, visual.spritePath, () => this.requestRender());
       }
     });
+    const floorKey = 'floor_concrete_old';
+    if (!this.assetManager.hasImage(floorKey)) {
+      this.assetManager.loadImage(floorKey, 'assets/textures/floor/floor_concrete_old_01.png', () => this.requestRender());
+    }
     this.render();
   }
 

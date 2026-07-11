@@ -1,4 +1,4 @@
-'use strict';
+﻿'use strict';
 
 const GridMap = require('./GridMap');
 const CanvasUtils = require('../ui/CanvasUtils');
