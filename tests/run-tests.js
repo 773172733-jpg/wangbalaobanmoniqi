@@ -380,7 +380,8 @@ function testRuntimeAtSize(width, height, pixelRatio) {
   const beforeFurniture = JSON.stringify(game.gameState.getState().furniture);
   const start = { clientX: overview.mapBounds.x + overview.mapBounds.width / 2, clientY: overview.mapBounds.y + overview.mapBounds.height / 2 };
   const beforeY = overview.camera.cameraY;
-  const canPanVertically = overview.camera.worldHeight > overview.mapBounds.height / overview.camera.zoom;
+  const totalH = overview.camera.worldHeight + overview.camera.viewPaddingY * 2;
+  const canPanVertically = totalH > overview.mapBounds.height / overview.camera.zoom;
   overview.onTouchStart({ touches: [start] });
   overview.onTouchMove({ touches: [{ clientX: start.clientX, clientY: start.clientY - 30 }] });
   if (canPanVertically) assert.notStrictEqual(overview.camera.cameraY, beforeY);

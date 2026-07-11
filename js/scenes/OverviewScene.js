@@ -38,7 +38,10 @@ class OverviewScene {
       worldHeight: this.worldGrid.getWorldSize().height,
       minZoom: 0.66,
       maxZoom: 1.25
-    });this.mapBounds = rect(0, 0, 1, 1);
+    });
+    const camBoundsOv = this.worldGrid.getCameraBounds();
+    this.camera.setViewPadding(camBoundsOv.paddingX, camBoundsOv.paddingY);
+    this.mapBounds = rect(0, 0, 1, 1);
     this.resetHitBox = rect(0, 0, 1, 1);
     this.gesture = null;
     this.hasLayout = false;

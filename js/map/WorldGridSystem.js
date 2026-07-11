@@ -48,6 +48,10 @@ class WorldGridSystem {
     return { minX: 0, maxX: width, minY: 0, maxY: height };
   }
 
+  getCameraBounds() {
+    return this.boundsManager.getCameraBounds();
+  }
+
   isInside(gridX, gridY, w, h) {
     return gridX >= 0 && gridY >= 0 && gridX + w <= this.columns && gridY + h <= this.rows;
   }

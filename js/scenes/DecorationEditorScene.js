@@ -34,6 +34,8 @@ class DecorationEditorScene {
     this.renderer = new DecorationRenderer(this.assetManager, this.gridMap);
     const ws = this.worldGrid.getWorldSize();
     this.camera = new Camera2D({ worldWidth: ws.width, worldHeight: ws.height });
+    const camBounds = this.worldGrid.getCameraBounds();
+    this.camera.setViewPadding(camBounds.paddingX, camBounds.paddingY);
     this.drawerOpen = false;
     this.detailOpen = false;
     
@@ -442,6 +444,8 @@ class DecorationEditorScene {
     this.gridMap.rows = this.worldGrid.rows;
     const size = this.worldGrid.getWorldSize();
     this.camera.setWorldSize(size.width, size.height);
+    const cb = this.worldGrid.getCameraBounds();
+    this.camera.setViewPadding(cb.paddingX, cb.paddingY);
   }
 
   render() {
@@ -456,6 +460,8 @@ class DecorationEditorScene {
     if (!firstLayout) {
       const ws = this.worldGrid.getWorldSize();
       this.camera.setWorldSize(ws.width, ws.height);
+      const cbRender = this.worldGrid.getCameraBounds();
+      this.camera.setViewPadding(cbRender.paddingX, cbRender.paddingY);
     }
     this.camera.setViewport(this.mapBounds);
     if (firstLayout) this.camera.fitToView(10);

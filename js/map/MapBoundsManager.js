@@ -38,6 +38,20 @@ class MapBoundsManager {
     return { minX: 0, maxX: width, minY: 0, maxY: height };
   }
 
+  getCameraBounds() {
+    const { width, height } = this.getWorldSize();
+    const padX = Math.round(width * 0.2);
+    const padY = Math.round(height * 0.2);
+    return {
+      minX: -padX,
+      maxX: width + padX,
+      minY: -padY,
+      maxY: height + padY,
+      paddingX: padX,
+      paddingY: padY
+    };
+  }
+
   refresh() {
     return this.getDimensions();
   }

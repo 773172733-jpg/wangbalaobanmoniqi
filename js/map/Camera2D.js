@@ -1,4 +1,4 @@
-'use strict';
+﻿'use strict';
 
 class Camera2D {
   constructor(options) {
@@ -11,6 +11,8 @@ class Camera2D {
     this.viewportRect = { x: 0, y: 0, width: 1, height: 1 };
     this.worldWidth = settings.worldWidth || 720;
     this.worldHeight = settings.worldHeight || 480;
+    this.viewPaddingX = 0;
+    this.viewPaddingY = 0;
   }
 
   setViewport(rect) { this.viewportRect = Object.assign({}, rect); this.clampCamera(); }
@@ -19,14 +21,21 @@ class Camera2D {
     this.worldHeight = Math.max(1, Number(height) || 1);
     this.clampCamera();
   }
+  setViewPadding(padX, padY) {
+    this.viewPaddingX = Math.max(0, Number(padX) || 0);
+    this.viewPaddingY = Math.max(0, Number(padY) || 0);
+    this.clampCamera();
+  }
 
   fitToViewport(padding) {
     const inset = padding || 20;
+    const totalW = this.worldWidth + this.viewPaddingX * 2;
+    const totalH = this.worldHeight + this.viewPaddingY * 2;
     const availableW = Math.max(1, this.viewportRect.width - inset * 2);
     const availableH = Math.max(1, this.viewportRect.height - inset * 2);
-    this.zoom = Math.max(this.minZoom, Math.min(this.maxZoom, Math.min(availableW / this.worldWidth, availableH / this.worldHeight)));
-    this.cameraX = (this.worldWidth - this.viewportRect.width / this.zoom) / 2;
-    this.cameraY = (this.worldHeight - this.viewportRect.height / this.zoom) / 2;
+    this.zoom = Math.max(this.minZoom, Math.min(this.maxZoom, Math.min(availableW / totalW, availableH / totalH)));
+    this.cameraX = (totalW - this.viewportRect.width / this.zoom) / 2 - this.viewPaddingX;
+    this.cameraY = (totalH - this.viewportRect.height / this.zoom) / 2 - this.viewPaddingY;
     this.clampCamera();
   }
 
@@ -60,12 +69,16 @@ class Camera2D {
   }
 
   clampCamera() {
+    const padX = this.viewPaddingX || 0;
+    const padY = this.viewPaddingY || 0;
     const visibleW = this.viewportRect.width / this.zoom;
     const visibleH = this.viewportRect.height / this.zoom;
-    if (this.worldWidth <= visibleW) this.cameraX = (this.worldWidth - visibleW) / 2;
-    else this.cameraX = Math.max(0, Math.min(this.cameraX, this.worldWidth - visibleW));
-    if (this.worldHeight <= visibleH) this.cameraY = (this.worldHeight - visibleH) / 2;
-    else this.cameraY = Math.max(0, Math.min(this.cameraY, this.worldHeight - visibleH));
+    const totalW = this.worldWidth + padX * 2;
+    const totalH = this.worldHeight + padY * 2;
+    if (totalW <= visibleW) this.cameraX = (totalW - visibleW) / 2 - padX;
+    else this.cameraX = Math.max(-padX, Math.min(this.cameraX, this.worldWidth + padX - visibleW));
+    if (totalH <= visibleH) this.cameraY = (totalH - visibleH) / 2 - padY;
+    else this.cameraY = Math.max(-padY, Math.min(this.cameraY, this.worldHeight + padY - visibleH));
   }
 
   clamp() { this.clampCamera(); }
