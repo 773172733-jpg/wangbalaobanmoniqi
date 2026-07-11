@@ -628,10 +628,38 @@ function testExpansionMapLinkage() {
   assert.strictEqual(defaultBounds.minY, 0);
 }
 
+
+function testDebugSaveReset() {
+  global.wx = createWx();
+  const saveManager = new SaveManager(initialState);
+  const eventBus = new EventBus();
+  
+  // 1. Create initial save with non-default cash
+  let data = saveManager.load();
+  data.player.cash = 99999;
+  saveManager.save(data);
+  
+  // 2. Reload and verify custom cash
+  let gameState = new GameState(saveManager.load(), eventBus);
+  assert.strictEqual(gameState.getState().player.cash, 99999);
+  
+  // 3. Reset save via createNew
+  saveManager.createNew();
+  gameState.replace(saveManager.load());
+  
+  // 4. Verify reset to default cash
+  assert.strictEqual(gameState.getState().player.cash, initialState.player.cash);
+  assert.strictEqual(gameState.getState().expansion.level, 0);
+  assert.strictEqual(gameState.getState().expansion.currentArea, 10000);
+  assert.deepStrictEqual(gameState.getState().expansion.history, []);
+  assert.strictEqual(gameState.getState().saveVersion, 8);
+}
+
 function run() {
   testMigrationAndRecovery();
   testExpansion();
   testExpansionMapLinkage();
+  testDebugSaveReset();
   testDeviceRules();
   testEmployeeRules();
   testMarketingRules();

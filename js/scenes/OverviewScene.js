@@ -30,7 +30,8 @@ class OverviewScene {
     this.decorationRenderer = new DecorationRenderer(this.assetManager, this.gridMap);
     this.deviceSystem = new DeviceSystem();
     this.operatingMetricsSystem = new OperatingMetricsSystem();
-    this.debugPanel = operatingConfig.DEBUG_BUSINESS_SIMULATION && deps.businessSimulation ? new BusinessDebugPanel(deps.businessSimulation, this.inputManager, this.requestRender) : null;
+    const enableDebug = operatingConfig.DEBUG_BUSINESS_SIMULATION || operatingConfig.DEBUG_SAVE_RESET;
+    this.debugPanel = enableDebug && deps.businessSimulation ? new BusinessDebugPanel(deps.businessSimulation, this.inputManager, this.requestRender, this.saveManager, this.gameState) : null;
     this.camera = new Camera2D({
       worldWidth: wsOverview.width,
       worldHeight: wsOverview.height,
