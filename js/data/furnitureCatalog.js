@@ -1,4 +1,4 @@
-'use strict';
+﻿'use strict';
 
 const zeroBonus = {
   environment: 0,
@@ -137,5 +137,48 @@ module.exports = [
     ratingBonus: bonus({ hygiene: 2 }),
     renderStyle: { body: '#4f5a61', accent: '#7e8a91' },
     visual: visual({ body: '#4f5a61', accent: '#7e8a91' })
+  }
+
+  {
+    type: 'wall_horizontal',
+    name: '横向墙体',
+    category: '墙体',
+    width: 2,
+    height: 1,
+    price: 300,
+    refundRate: 0.5,
+    maxCount: 0,
+    capacity: 0,
+    ratingBonus: bonus({ environment: 2 }),
+    renderStyle: { body: '#8a7a6a', accent: '#b5a590' },
+    visual: { spriteKey: 'wall_horizontal', spritePath: 'assets/textures/wall/wall_horizontal_01.png', renderScale: 1, renderOffsetX: 0, renderOffsetY: 0, anchorX: 0.5, anchorY: 0.5, naturalWidth: 594, naturalHeight: 501, fallbackStyle: { body: '#8a7a6a', accent: '#b5a590' } }
+  },
+  {
+    type: 'wall_vertical',
+    name: '竖向墙体',
+    category: '墙体',
+    width: 1,
+    height: 2,
+    price: 300,
+    refundRate: 0.5,
+    maxCount: 0,
+    capacity: 0,
+    ratingBonus: bonus({ environment: 2 }),
+    renderStyle: { body: '#8a7a6a', accent: '#b5a590' },
+    visual: { spriteKey: 'wall_vertical', spritePath: 'assets/textures/wall/wall_vertical_01.png', renderScale: 1, renderOffsetX: 0, renderOffsetY: 0, anchorX: 0.5, anchorY: 0.5, naturalWidth: 483, naturalHeight: 567, fallbackStyle: { body: '#8a7a6a', accent: '#b5a590' } }
+  },
+  {
+    type: 'wall_corner',
+    name: 'L型转角墙体',
+    category: '墙体',
+    width: 1,
+    height: 1,
+    price: 400,
+    refundRate: 0.5,
+    maxCount: 0,
+    capacity: 0,
+    ratingBonus: bonus({ environment: 3 }),
+    renderStyle: { body: '#8a7a6a', accent: '#b5a590' },
+    visual: { spriteKey: 'wall_corner', spritePath: 'assets/textures/wall/wall_corner_L_01.png', renderScale: 1, renderOffsetX: 0, renderOffsetY: 0, anchorX: 0.5, anchorY: 0.5, naturalWidth: 485, naturalHeight: 501, fallbackStyle: { body: '#8a7a6a', accent: '#b5a590' } }
   }
 ];

@@ -63,6 +63,17 @@ class OverviewScene {
     if (this.assetManager && !this.assetManager.hasImage(floorKey)) {
       this.assetManager.loadImage(floorKey, 'assets/textures/floor/floor_concrete_old_01.png', () => this.requestRender());
     }
+    const wallKeys = ['wall_horizontal', 'wall_vertical', 'wall_corner'];
+    const wallPaths = {
+      wall_horizontal: 'assets/textures/wall/wall_horizontal_01.png',
+      wall_vertical: 'assets/textures/wall/wall_vertical_01.png',
+      wall_corner: 'assets/textures/wall/wall_corner_L_01.png'
+    };
+    wallKeys.forEach((key) => {
+      if (this.assetManager && !this.assetManager.hasImage(key)) {
+        this.assetManager.loadImage(key, wallPaths[key], () => this.requestRender());
+      }
+    });
     if (this.gameState && this.gameState.eventBus) {
       if (this._unsubMapExpanded) this._unsubMapExpanded();
       this._unsubMapExpanded = this.gameState.eventBus.on('mapExpanded', () => {

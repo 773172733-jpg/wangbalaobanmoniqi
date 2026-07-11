@@ -79,7 +79,19 @@ class DecorationRenderer {
       context.fillRect(rect.x + rect.width * 0.28, rect.y + 10, rect.width * 0.44, rect.height - 17);
       context.fillStyle = '#7e8a91';
       context.fillRect(rect.x + rect.width * 0.24, rect.y + 7, rect.width * 0.52, 5);
+
+      return;
     }
+    if (type === 'wall_horizontal' || type === 'wall_vertical' || type === 'wall_corner') {
+      CanvasUtils.fillRoundedRect(context, rect, 2, '#7a6e5c');
+      CanvasUtils.strokeRoundedRect(context, rect, 2, '#5c5040', 1);
+      const label = type === 'wall_corner' ? 'L' : (type === 'wall_vertical' ? '||' : '=');
+      context.fillStyle = '#3d3528';
+      context.font = 'bold 10px sans-serif';
+      context.textAlign = 'center';
+      context.fillText(label, rect.x + rect.width / 2, rect.y + rect.height / 2 + 4);
+      return;
+    }    }
   }
 
   drawSprite(context, rect, config, rotation) {

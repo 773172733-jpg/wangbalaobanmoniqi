@@ -79,6 +79,17 @@ class DecorationEditorScene {
     if (!this.assetManager.hasImage(floorKey)) {
       this.assetManager.loadImage(floorKey, 'assets/textures/floor/floor_concrete_old_01.png', () => this.requestRender());
     }
+    const wallKeys = ['wall_horizontal', 'wall_vertical', 'wall_corner'];
+    const wallPaths = {
+      wall_horizontal: 'assets/textures/wall/wall_horizontal_01.png',
+      wall_vertical: 'assets/textures/wall/wall_vertical_01.png',
+      wall_corner: 'assets/textures/wall/wall_corner_L_01.png'
+    };
+    wallKeys.forEach((key) => {
+      if (!this.assetManager.hasImage(key)) {
+        this.assetManager.loadImage(key, wallPaths[key], () => this.requestRender());
+      }
+    });
     this.render();
   }
 
@@ -323,7 +334,7 @@ class DecorationEditorScene {
     CanvasUtils.fillRoundedRect(context, box, 7, '#0d2232'); CanvasUtils.strokeRoundedRect(context, box, 7, '#d3a845', 1);
     context.fillStyle = '#f3d47d'; context.font = 'bold 13px sans-serif'; context.textAlign = 'left'; context.fillText('家具库', box.x + 12, box.y + 22);
     this.button(context, 'drawer:close', rect(box.x + box.width - 46, box.y + 2, 40, 40), '×', true, () => { this.drawerOpen = false; this.requestRender(); });
-    const categories = ['全部', '电脑', '功能', '休息', '装饰', '空间管理'];
+    const categories = ['全部', '电脑', '功能', '休息', '装饰', '墙体', '空间管理'];
     const tabW = (box.width - 16) / categories.length;
     categories.forEach((name, index) => this.button(context, 'drawer:cat:' + name, rect(box.x + 8 + index * tabW, box.y + 43, tabW - 3, 40), name, true, () => { this.category = name; this.catalogScroll = 0; this.requestRender(); }, this.category === name));
     const listTop = box.y + 90;
