@@ -221,11 +221,12 @@ class DecorationEditorScene {
       const created = this.furnitureManager.create(item.type, item.gridX, item.gridY, item.rotation);
       if (isComputerPurchase) {
         // 轮流分配电脑颜色
-        const state = this.gameState.getState();
-        if (state.nextComputerColor === undefined) state.nextComputerColor = 0;
-        created.textureVariant = state.nextComputerColor % 3;
-        console.log('[PC COLOR] assigned variant ' + created.textureVariant + ' (color #' + (created.textureVariant + 1) + '), next will be #' + ((state.nextComputerColor + 1) % 3 + 1));
-        state.nextComputerColor += 1;
+        if (this._nextComputerColor === undefined) this._nextComputerColor = 0;
+        created.textureVariant = this._nextComputerColor % 3;
+        console.log('[PC COLOR] variant=' + created.textureVariant + ' next=' + ((this._nextComputerColor + 1) % 3));
+        this._nextComputerColor += 1;
+        // 同步到gameState以持久化
+        this.gameState.getState().nextComputerColor = this._nextComputerColor;
       }
       this.draft.draftFurniture = this.furnitureManager.add(this.draft.draftFurniture, created);
       this.draft.draftCash -= price;
