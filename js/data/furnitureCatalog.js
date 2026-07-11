@@ -29,7 +29,7 @@ module.exports = [
   {
     type: 'standard_pc_desk',
     name: '普通电脑桌',
-    category: '电脑',
+    category: '设备',
     width: 2,
     height: 1,
     price: 1000,
@@ -46,7 +46,7 @@ module.exports = [
   {
     type: 'double_gaming_desk',
     name: '双人电竞桌',
-    category: '电脑',
+    category: '设备',
     width: 3,
     height: 1,
     price: 1800,
@@ -63,7 +63,7 @@ module.exports = [
   {
     type: 'vip_pc_set',
     name: 'VIP电脑区',
-    category: '电脑',
+    category: '设备',
     width: 3,
     height: 2,
     price: 3500,
@@ -77,7 +77,7 @@ module.exports = [
   {
     type: 'cashier_counter',
     name: '收银台',
-    category: '功能',
+    category: '家具',
     width: 2,
     height: 1,
     price: 1500,
@@ -91,7 +91,7 @@ module.exports = [
   {
     type: 'sofa',
     name: '休息沙发',
-    category: '休息',
+    category: '家具',
     width: 2,
     height: 1,
     price: 800,
@@ -133,7 +133,7 @@ module.exports = [
   {
     type: 'trash_bin',
     name: '垃圾桶',
-    category: '功能',
+    category: '家具',
     width: 1,
     height: 1,
     price: 150,

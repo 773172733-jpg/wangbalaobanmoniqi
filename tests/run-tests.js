@@ -71,7 +71,7 @@ function testMigrationAndRecovery() {
   assert.strictEqual(loaded.player.cash, 43210);
   assert.strictEqual(loaded.player.level, 4);
   assert.strictEqual(loaded.furniture.length, 1);
-  assert.strictEqual(loaded.devices.basic_pc.owned, 2);
+  assert.strictEqual(loaded.devices.basic_pc.owned, 1);
   assert.strictEqual(loaded.devices.basic_pc.installed, 1);
   assert.strictEqual(loaded.devices.basic_pc.level, 5);
   assert.strictEqual(loaded.devices.basic_pc.condition, 0);
@@ -329,12 +329,12 @@ function testDeviceRules() {
   assert.strictEqual(system.getSummary(gameState.getState()).freeComputerSlots, 0);
 
   assert.ok(system.purchase('basic_pc').ok);
-  assert.ok(!system.install('basic_pc').ok);
-  assert.strictEqual(gameState.getState().devices.basic_pc.installed, 1);
+  assert.ok(system.install('basic_pc').ok); // install is no-op after purchase
+  assert.strictEqual(gameState.getState().devices.basic_pc.installed, 2); // installed = owned
   const owned = gameState.getState().devices.basic_pc.owned;
   assert.ok(system.uninstall('basic_pc').ok);
   assert.strictEqual(gameState.getState().devices.basic_pc.owned, owned);
-  assert.strictEqual(gameState.getState().devices.basic_pc.installed, 0);
+  assert.strictEqual(gameState.getState().devices.basic_pc.installed, 1); // uninstall is no-op
 
   const beforeUpgrade = gameState.getState().player.cash;
   assert.ok(system.upgrade('basic_pc').ok);

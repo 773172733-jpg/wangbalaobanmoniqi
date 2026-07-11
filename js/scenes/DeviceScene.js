@@ -347,7 +347,10 @@ class DeviceScene {
   }
 
   drawPlacementOverlay(context, full) {
+    this.ensureMapReady();
     const state = this.gameState.getState();
+    this.gridMap.columns = this.worldGrid.columns;
+    this.gridMap.rows = this.worldGrid.rows;
     const mapW = Math.min(full.width - 40, 480);
     const mapH = Math.min(full.height - 180, mapW * 0.65);
     const mapX = full.x + (full.width - mapW) / 2;

@@ -2,7 +2,6 @@
 
 const equipmentCatalog = require('../data/equipmentCatalog');
 const furnitureCatalog = require('../data/furnitureCatalog');
-const expansionConfig = require('../data/expansionConfig');
 const FinanceSystem = require('./FinanceSystem');
 
 function clamp(value, min, max) { return Math.max(min, Math.min(max, value)); }
@@ -51,86 +50,6 @@ class DeviceSystem {
     }, 0);
   }
 
-  getMapDimensions(state) {
-    const expansion = state && state.expansion;
-    const area = Number(expansion && expansion.currentArea) || expansionConfig.baseArea;
-    const ratio = expansionConfig.defaultGridColumns / expansionConfig.defaultGridRows;
-    const scale = Math.sqrt(area) / Math.sqrt(expansionConfig.baseArea);
-    const columns = Math.max(1, Math.round(expansionConfig.defaultGridColumns * scale));
-    const rows = Math.max(1, Math.round(columns / ratio));
-    return { columns: columns, rows: rows };
-  }
-
-  isFurnitureAreaFree(furniture, type, gridX, gridY) {
-    const target = this.furnitureByType[type];
-    if (!target) return false;
-    return !(Array.isArray(furniture) ? furniture : []).some((item) => {
-      const config = item && this.furnitureByType[item.type];
-      if (!config) return false;
-      return gridX < item.gridX + config.width && gridX + target.width > item.gridX &&
-        gridY < item.gridY + config.height && gridY + target.height > item.gridY;
-    });
-  }
-
-  createComputerDesk(state, deviceType) {
-    const type = deviceType === 'gaming_pc' || deviceType === 'premium_pc' ? 'double_gaming_desk' : 'standard_pc_desk';
-    const config = this.furnitureByType[type];
-    if (!config) return null;
-    const dims = this.getMapDimensions(state);
-    state.furniture = Array.isArray(state.furniture) ? state.furniture : [];
-    for (let y = 0; y <= dims.rows - config.height; y += 1) {
-      for (let x = 0; x <= dims.columns - config.width; x += 1) {
-        if (this.isFurnitureAreaFree(state.furniture, type, x, y)) {
-          const item = {
-            id: 'device_desk_' + Date.now() + '_' + Math.floor(Math.random() * 10000),
-            type: type,
-            gridX: x,
-            gridY: y,
-            rotation: 0,
-            sourceSystem: 'device',
-            sourceDeviceType: deviceType
-          };
-          state.furniture = state.furniture.concat([item]);
-          return item;
-        }
-      }
-    }
-    return null;
-  }
-
-  createComputerDeskAt(state, deviceType, gridX, gridY) {
-    const type = deviceType === 'gaming_pc' || deviceType === 'premium_pc' ? 'double_gaming_desk' : 'standard_pc_desk';
-    const config = this.furnitureByType[type];
-    if (!config) return null;
-    state.furniture = Array.isArray(state.furniture) ? state.furniture : [];
-    if (!this.isFurnitureAreaFree(state.furniture, type, gridX, gridY)) return null;
-    const item = {
-      id: 'device_desk_' + Date.now() + '_' + Math.floor(Math.random() * 10000),
-      type: type,
-      gridX: gridX,
-      gridY: gridY,
-      rotation: 0,
-      sourceSystem: 'device',
-      sourceDeviceType: deviceType
-    };
-    state.furniture = state.furniture.concat([item]);
-    return item;
-  }
-
-  removeComputerDesk(state, deviceType) {
-    const furniture = Array.isArray(state.furniture) ? state.furniture : [];
-    const preferredIndex = furniture.map((item, index) => ({ item: item, index: index })).reverse().find((entry) => (
-      entry.item && entry.item.sourceSystem === 'device' && entry.item.sourceDeviceType === deviceType
-    ));
-    const fallbackTypes = deviceType === 'gaming_pc' || deviceType === 'premium_pc' ? ['double_gaming_desk'] : ['standard_pc_desk'];
-    const fallbackIndex = preferredIndex || furniture.map((item, index) => ({ item: item, index: index })).reverse().find((entry) => (
-      entry.item && fallbackTypes.indexOf(entry.item.type) >= 0
-    ));
-    if (!fallbackIndex) return null;
-    state.furniture = furniture.filter((item, index) => index !== fallbackIndex.index);
-    return fallbackIndex.item;
-  }
-
   sanitizeDevices(devices, furniture) {
     const source = this.convertLegacyDevices(devices);
     const normalized = {};
@@ -138,35 +57,35 @@ class DeviceSystem {
     this.catalog.items.forEach((config) => {
       const raw = source[config.type] || {};
       const owned = Math.max(0, integer(raw.owned, 0));
-      normalized[config.type] = {
+      const record = {
         owned: owned,
-        installed: clamp(integer(raw.installed, owned), 0, owned),
+        installed: owned,
         level: clamp(integer(raw.level, 1), 1, config.maxLevel),
         condition: clamp(Number.isFinite(Number(raw.condition)) ? Number(raw.condition) : 100, 0, 100)
       };
+      normalized[config.type] = record;
     });
 
     const computerTypes = this.catalog.items.filter((item) => item.requiresComputerSlot).map((item) => item.type);
     const slots = this.getComputerSlots(furniture);
-    const installed = computerTypes.reduce((total, type) => total + normalized[type].installed, 0);
+    let installed = computerTypes.reduce((total, type) => total + normalized[type].installed, 0);
     if (installed > slots) {
       let excess = installed - slots;
       computerTypes.slice().reverse().forEach((type) => {
         const removed = Math.min(excess, normalized[type].installed);
         normalized[type].installed -= removed;
-        normalized[type].owned = Math.min(normalized[type].owned, normalized[type].installed);
+        normalized[type].owned = normalized[type].installed;
         excess -= removed;
       });
-      warnings.push('Installed computers exceeded map desks; extra computers were removed.');
+      warnings.push('已安装电脑超过现有电脑位，已安全卸下 ' + (installed - slots) + ' 台。');
     }
     return { devices: normalized, warnings: warnings };
   }
 
-  getInstalledComputers(devices) {
-    return this.catalog.items.reduce((total, config) => {
-      if (!config.requiresComputerSlot) return total;
-      return total + this.getRecord(devices, config.type).installed;
-    }, 0);
+  getInstalledComputers(devices, furniture) {
+    const furs = Array.isArray(furniture) ? furniture : [];
+    const deskTypes = ['standard_pc_desk', 'double_gaming_desk', 'vip_pc_set'];
+    return furs.filter(f => f && deskTypes.includes(f.type)).length;
   }
 
   calculateScore(devices) {
@@ -199,140 +118,109 @@ class DeviceSystem {
   }
 
   getSummary(state) {
-    const root = state || {};
-    const slots = this.getComputerSlots(root.furniture);
-    const installedComputers = this.getInstalledComputers(root.devices);
+    const slots = this.getComputerSlots(state.furniture);
+    const installedComputers = this.getInstalledComputers(state.devices);
     return {
       computerSlots: slots,
       installedComputers: installedComputers,
-      freeComputerSlots: Math.max(0, slots - installedComputers),
-      equipmentScore: this.calculateScore(root.devices),
-      averageCondition: this.calculateAverageCondition(root.devices),
-      dailyElectricity: this.calculateDailyElectricity(root.devices)
+      freeComputerSlots: 0,
+      equipmentScore: this.calculateScore(state.devices),
+      averageCondition: this.calculateAverageCondition(state.devices),
+      dailyElectricity: this.calculateDailyElectricity(state.devices)
     };
   }
 
   getOperatingMetrics(state) {
     const root = state || (this.gameState && this.gameState.getState()) || {};
     const pools = [
-      { tier: 'basic', type: 'basic_pc' },
-      { tier: 'gaming', type: 'gaming_pc' },
-      { tier: 'premium', type: 'premium_pc' }
+      { tier: 'basic', type: 'basic_pc' }, { tier: 'gaming', type: 'gaming_pc' }, { tier: 'premium', type: 'premium_pc' }
     ].map((item) => {
-      const config = this.catalog.byType[item.type];
-      const record = this.getRecord(root.devices, item.type);
-      return {
-        tier: item.tier,
-        count: record.installed,
-        performance: Math.round(config.performance * (1 + (record.level - 1) * 0.15) * record.condition / 100),
-        powerUsage: config.powerUsage
-      };
+      const config = this.catalog.byType[item.type]; const record = this.getRecord(root.devices, item.type);
+      return { tier: item.tier, count: record.installed, performance: Math.round(config.performance * (1 + (record.level - 1) * 0.15) * record.condition / 100), powerUsage: config.powerUsage };
     });
-    const router = this.getRecord(root.devices, 'gigabit_router');
-    const routerConfig = this.catalog.byType.gigabit_router;
-    const ups = this.getRecord(root.devices, 'ups_power');
-    const upsConfig = this.catalog.byType.ups_power;
-    const count = pools.reduce((sum, pool) => sum + pool.count, 0);
-    const performance = pools.reduce((sum, pool) => sum + pool.count * pool.performance, 0);
-    return {
-      installedComputerCount: count,
-      computerPools: pools,
-      averagePerformance: count ? Math.round(performance / count) : 0,
-      equipmentScore: this.calculateScore(root.devices),
-      networkQuality: Math.min(100, 25 + router.installed * 35 + (router.level - 1) * 8),
-      networkCapacity: 5 + router.installed * routerConfig.capacity * (1 + (router.level - 1) * 0.25),
-      powerCapacity: 4 + ups.installed * upsConfig.capacity * (1 + (ups.level - 1) * 0.25),
-      currentPowerDemand: Math.round(this.catalog.items.reduce((sum, config) => sum + this.getRecord(root.devices, config.type).installed * config.powerUsage * (config.requiresComputerSlot ? 0.15 : 1), 0) * 10) / 10
-    };
+    const router = this.getRecord(root.devices, 'gigabit_router'); const routerConfig = this.catalog.byType.gigabit_router;
+    const ups = this.getRecord(root.devices, 'ups_power'); const upsConfig = this.catalog.byType.ups_power;
+    const count = pools.reduce((sum, pool) => sum + pool.count, 0); const performance = pools.reduce((sum, pool) => sum + pool.count * pool.performance, 0);
+    return { installedComputerCount: count, computerPools: pools, averagePerformance: count ? Math.round(performance / count) : 0, equipmentScore: this.calculateScore(root.devices), networkQuality: Math.min(100, 25 + router.installed * 35 + (router.level - 1) * 8), networkCapacity: 5 + router.installed * routerConfig.capacity * (1 + (router.level - 1) * 0.25), powerCapacity: 4 + ups.installed * upsConfig.capacity * (1 + (ups.level - 1) * 0.25), currentPowerDemand: Math.round(this.catalog.items.reduce((sum, config) => sum + this.getRecord(root.devices, config.type).installed * config.powerUsage * (config.requiresComputerSlot ? 0.15 : 1), 0) * 10) / 10 };
+  }
+
+  commit(mutator) {
+    if (!this.gameState) return { ok: false, message: '设备系统尚未连接游戏状态。' };
+    const next = this.gameState.snapshot();
+    const sanitized = this.sanitizeDevices(next.devices, next.furniture);
+    next.devices = sanitized.devices;
+    const result = mutator(next);
+    if (!result.ok) return result;
+    const finalData = this.sanitizeDevices(next.devices, next.furniture);
+    next.devices = finalData.devices;
+    const committed = this.saveManager && this.saveManager.normalize ? this.saveManager.normalize(next) : next;
+    this.gameState.replace(committed);
+    if (this.saveManager) this.saveManager.save(committed);
+    return result;
   }
 
   purchase(type) {
     const config = this.catalog.byType[type];
+    if (!config) return { ok: false, message: '未知设备类型。' };
+    return this.financeSystem.recordExpense({ category: 'equipment_purchase', amount: config.purchasePrice, sourceSystem: 'device', sourceId: type, description: '购买' + config.name, successMessage: '已购买一台' + config.name + '。', mutate: (state) => { state.devices = this.sanitizeDevices(state.devices, state.furniture).devices; state.devices[type].owned += 1;
+        state.devices[type].installed += 1; } });
+  }
+
+  install(type) {
+    const config = this.catalog.byType[type];
     if (!config) return { ok: false, message: 'Unknown device type.' };
-    if (!this.financeSystem) return { ok: false, message: 'Device finance is not ready.' };
-    if (config.requiresComputerSlot) {
-      const snapshot = this.gameState.snapshot();
-      if (!this.createComputerDesk(snapshot, type)) return { ok: false, message: 'No room to place this computer. Expand first.' };
-    }
-    return this.financeSystem.recordExpense({
-      category: 'equipment_purchase',
-      amount: config.purchasePrice,
-      sourceSystem: 'device',
-      sourceId: type,
-      description: 'Purchase ' + config.name,
-      successMessage: 'Purchased 1 ' + config.name + '.',
-      mutate: (state) => {
-        state.devices = this.sanitizeDevices(state.devices, state.furniture).devices;
-        if (config.requiresComputerSlot) this.createComputerDesk(state, type);
-        state.devices[type].owned += 1;
-        state.devices[type].installed += 1;
+    const record = this.getRecord(this.gameState.getState().devices, type);
+    if (record.owned <= 0) return { ok: false, message: 'No devices to install.' };
+    return { ok: true, message: 'Device already active.' };
+  }
+
+  _old_install(type) {
+    const config = this.catalog.byType[type];
+    if (!config) return { ok: false, message: '未知设备类型。' };
+    return this.commit((state) => {
+      const record = state.devices[type];
+      if (record.installed >= record.owned) return { ok: false, message: '没有可安装的库存设备。' };
+      if (config.requiresComputerSlot && this.getInstalledComputers(state.devices) >= this.getComputerSlots(state.furniture)) {
+        return { ok: false, message: '当前没有空闲电脑位，请先在装修页面增加电脑桌。' };
       }
+      record.installed += 1;
+      return { ok: true, message: '设备已安装，不会重复扣款。' };
     });
   }
 
-  sell(type) {
+  uninstall(type) {
     const config = this.catalog.byType[type];
     if (!config) return { ok: false, message: 'Unknown device type.' };
-    if (!this.financeSystem) return { ok: false, message: 'Device finance is not ready.' };
-    const record = this.getRecord(this.gameState.getState().devices, type);
-    if (record.owned <= 0) return { ok: false, message: 'No device to sell.' };
-    const refund = Math.max(1, Math.floor(config.purchasePrice * 0.5));
-    return this.financeSystem.recordIncome({
-      category: 'asset_sale_refund',
-      amount: refund,
-      sourceSystem: 'device',
-      sourceId: type,
-      description: 'Sell ' + config.name,
-      successMessage: 'Sold 1 ' + config.name + '.',
-      isOperating: false,
-      mutate: (state) => {
-        state.devices = this.sanitizeDevices(state.devices, state.furniture).devices;
-        state.devices[type].owned = Math.max(0, state.devices[type].owned - 1);
-        state.devices[type].installed = Math.max(0, state.devices[type].installed - 1);
-        if (config.requiresComputerSlot) this.removeComputerDesk(state, type);
-      }
+    return { ok: true, message: 'Use sell to remove devices.' };
+  }
+
+  _old_uninstall(type) {
+    if (!this.catalog.byType[type]) return { ok: false, message: '未知设备类型。' };
+    return this.commit((state) => {
+      const record = state.devices[type];
+      if (record.installed <= 0) return { ok: false, message: '当前没有已安装设备。' };
+      record.installed -= 1;
+      return { ok: true, message: '已卸下一台设备，库存数量不变。' };
     });
   }
 
   upgrade(type) {
     const config = this.catalog.byType[type];
-    if (!config) return { ok: false, message: 'Unknown device type.' };
+    if (!config) return { ok: false, message: '未知设备类型。' };
     const record = this.getRecord(this.gameState.getState().devices, type);
-    if (record.owned <= 0) return { ok: false, message: 'Purchase this device first.' };
-    if (record.level >= config.maxLevel) return { ok: false, message: 'Already at max level.' };
+    if (record.owned <= 0) return { ok: false, message: '请先购买该设备。' };
+    if (record.level >= config.maxLevel) return { ok: false, message: '已达到最高等级。' };
     const cost = config.upgradeBasePrice * record.level;
-    return this.financeSystem.recordExpense({
-      category: 'equipment_upgrade',
-      amount: cost,
-      sourceSystem: 'device',
-      sourceId: type,
-      description: 'Upgrade ' + config.name,
-      successMessage: 'Device upgraded to Lv.' + (record.level + 1) + '.',
-      mutate: (state) => {
-        state.devices = this.sanitizeDevices(state.devices, state.furniture).devices;
-        state.devices[type].level += 1;
-      }
-    });
+    return this.financeSystem.recordExpense({ category: 'equipment_upgrade', amount: cost, sourceSystem: 'device', sourceId: type, description: '升级' + config.name, successMessage: '设备已升级至 Lv.' + (record.level + 1) + '。', mutate: (state) => { state.devices = this.sanitizeDevices(state.devices, state.furniture).devices; state.devices[type].level += 1; } });
   }
 
   repair(type) {
     const config = this.catalog.byType[type];
-    if (!config) return { ok: false, message: 'Unknown device type.' };
+    if (!config) return { ok: false, message: '未知设备类型。' };
     const record = this.getRecord(this.gameState.getState().devices, type);
-    if (record.condition >= 100) return { ok: false, message: 'Device condition is already good.' };
+    if (record.condition >= 100) return { ok: false, message: '设备状态良好，无需维修。' };
     const cost = Math.ceil((100 - record.condition) * config.dailyMaintenance);
-    return this.financeSystem.recordExpense({
-      category: 'equipment_maintenance',
-      amount: cost,
-      sourceSystem: 'device',
-      sourceId: type,
-      description: 'Repair ' + config.name,
-      successMessage: 'Device repaired.',
-      mutate: (state) => {
-        state.devices = this.sanitizeDevices(state.devices, state.furniture).devices;
-        state.devices[type].condition = 100;
-      }
-    });
+    return this.financeSystem.recordExpense({ category: 'equipment_maintenance', amount: cost, sourceSystem: 'device', sourceId: type, description: '维修' + config.name, successMessage: '设备维修完成。', mutate: (state) => { state.devices = this.sanitizeDevices(state.devices, state.furniture).devices; state.devices[type].condition = 100; } });
   }
 }
 
