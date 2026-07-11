@@ -75,6 +75,11 @@ class RatingSystem {
     result.service = clamp(serviceScore === undefined ? 40 : serviceScore);
     return recomputeOverall(result);
   }
+
+  getOperatingRatings(state) {
+    const cafe = state && state.cafe || {};
+    return { environmentScore: clamp(cafe.environment), comfortScore: clamp(cafe.comfort), hygieneScore: clamp(cafe.hygiene) };
+  }
 }
 
 RatingSystem.catalogByType = catalogByType;

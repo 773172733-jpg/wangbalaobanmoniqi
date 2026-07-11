@@ -142,6 +142,10 @@ class EmployeeSystem {
   }
   getMaintenanceBonus(state) { return this.employees(state).some((item) => item.traits && item.traits.indexOf('硬件专家') >= 0) ? 0.2 : 0; }
   getMarketingBonus(state) { return this.employees(state).some((item) => item.traits && item.traits.indexOf('营销高手') >= 0) ? 0.2 : 0; }
+  getOperatingMetrics(state) {
+    const employees = this.employees(state); const average = (key) => employees.length ? employees.reduce((sum, item) => sum + (Number(item.attributes && item.attributes[key]) || 0), 0) / employees.length : 0;
+    return { serviceScore: this.getServiceScore(state), serviceCapacity: 5 + Math.round(employees.reduce((sum, item) => sum + (Number(item.attributes && item.attributes.efficiency) || 0), 0) / 18), technicalSupport: Math.round(average('technology')), hygieneSupport: employees.some((item) => item.type === 'cleaner') ? Math.min(100, Math.round(average('efficiency') + 15)) : Math.round(average('efficiency') * 0.5), marketingSupport: Math.round(average('marketing')) };
+  }
 }
 
 module.exports = EmployeeSystem;

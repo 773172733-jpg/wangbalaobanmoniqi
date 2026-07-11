@@ -112,6 +112,10 @@ class MarketingSystem {
   getSummary(source) {
     return { marketingScore: this.getMarketingScore(source), brandAwareness: this.getBrandAwareness(source), brandLevel: this.getBrandLevel(source), brandTitle: this.getBrandTitle(source), customerAttraction: this.getCustomerAttraction(source), returnRateBonus: this.getReturnRateBonus(source), activeCampaigns: this.getActiveCampaigns(source) };
   }
+  getOperatingMetrics(source) {
+    const attraction = this.getCustomerAttraction(source);
+    return { trafficMultiplier: attraction.rawMultiplier, awareness: this.getBrandAwareness(source), awarenessBonus: this.getBrandAwareness(source) * 0.006, segmentMultipliers: { student: attraction.segments.students, gamer: attraction.segments.gamers, office_worker: attraction.segments.officeWorkers, streamer: attraction.segments.streamers } };
+  }
 }
 
 MarketingSystem.dayNumber = dayNumber;

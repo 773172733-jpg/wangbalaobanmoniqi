@@ -1,0 +1,8 @@
+'use strict';
+
+module.exports = [
+  { type: 'student', name: '学生党', baseShare: 0.45, sessionHours: [2, 2], minimumPerformance: 20, idealPerformance: 40, networkDemand: 40, environmentDemand: 45, serviceDemand: 35, comfortDemand: 35, idealHourlyPrice: 6, priceSensitivity: 0.9, averageExtraSpend: 3, timeMultipliers: { evening: 1.35, night: 1.15 }, weights: { price: 0.35, equipment: 0.15, network: 0.15, environment: 0.15, service: 0.1, reputation: 0.1 } },
+  { type: 'gamer', name: '电竞玩家', baseShare: 0.30, sessionHours: [4, 4], minimumPerformance: 50, idealPerformance: 75, networkDemand: 80, environmentDemand: 60, serviceDemand: 45, comfortDemand: 50, idealHourlyPrice: 10, priceSensitivity: 0.4, averageExtraSpend: 8, timeMultipliers: { evening: 1.4, night: 1.2 }, weights: { price: 0.1, equipment: 0.3, network: 0.25, environment: 0.1, service: 0.1, reputation: 0.15 } },
+  { type: 'office_worker', name: '上班族', baseShare: 0.20, sessionHours: [2, 3], minimumPerformance: 35, idealPerformance: 55, networkDemand: 65, environmentDemand: 80, serviceDemand: 75, comfortDemand: 80, idealHourlyPrice: 12, priceSensitivity: 0.5, averageExtraSpend: 10, timeMultipliers: { afternoon: 1.2, evening: 1.25 }, weights: { price: 0.1, equipment: 0.1, network: 0.2, environment: 0.25, comfort: 0.15, service: 0.2, reputation: 0.1 } },
+  { type: 'streamer', name: '主播/职业玩家', baseShare: 0.05, sessionHours: [5, 5], minimumPerformance: 80, idealPerformance: 95, networkDemand: 95, environmentDemand: 85, serviceDemand: 65, comfortDemand: 80, idealHourlyPrice: 18, priceSensitivity: 0.2, averageExtraSpend: 15, timeMultipliers: { afternoon: 1.1, evening: 1.35, night: 1.25 }, weights: { price: 0, equipment: 0.3, network: 0.3, environment: 0.15, service: 0.1, reputation: 0.15 } }
+];

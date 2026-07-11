@@ -9,6 +9,9 @@ const InputManager = require('./InputManager');
 const AssetManager = require('./AssetManager');
 const MainScene = require('../scenes/MainScene');
 const DecorationEditorScene = require('../scenes/DecorationEditorScene');
+const BusinessSimulationSystem = require('../systems/BusinessSimulationSystem');
+const FinanceSystem = require('../systems/FinanceSystem');
+const operatingConfig = require('../data/operatingConfig');
 
 class Game {
   constructor() {
@@ -17,7 +20,9 @@ class Game {
     this.eventBus = new EventBus();
     this.saveManager = new SaveManager(initialState);
     this.gameState = new GameState(this.saveManager.load(), this.eventBus);
-    this.timeManager = new TimeManager(this.gameState);
+    this.timeManager = new TimeManager(this.gameState, this.eventBus);
+    this.businessSimulation = new BusinessSimulationSystem(this.gameState, this.saveManager, this.timeManager, this.eventBus);
+    this.financeSystem = new FinanceSystem(this.gameState, this.saveManager);
     this.inputManager = new InputManager();
     this.assetManager = new AssetManager();
     this.viewport = this.configureCanvas();
@@ -47,6 +52,8 @@ class Game {
   }
 
   start() {
+    this.businessSimulation.start();
+    this.eventBus.on('time:monthEnded', (date) => { this.financeSystem.settlePayroll(date.year, date.month); this.financeSystem.settleRecurringExpenses(date.year, date.month); });
     const dependencies = {
       context: this.context,
       viewport: this.viewport,
@@ -54,7 +61,8 @@ class Game {
       saveManager: this.saveManager,
       timeManager: this.timeManager,
       inputManager: this.inputManager,
-      assetManager: this.assetManager
+      assetManager: this.assetManager,
+      businessSimulation: this.businessSimulation
     };
     this.mainScene = new MainScene(Object.assign({}, dependencies, {
       onOpenDecorationEditor: () => this.openDecorationEditor()
@@ -64,6 +72,7 @@ class Game {
     }));
     this.scene = this.mainScene;
     this.scene.enter();
+    this.timeManager.startAuto(operatingConfig.millisecondsPerGameHour);
     console.log('[游戏] 游戏初始化完成');
     console.log('[场景] 当前场景名称: ' + this.scene.name);
   }

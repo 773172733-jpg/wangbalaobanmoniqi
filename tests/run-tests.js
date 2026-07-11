@@ -12,6 +12,9 @@ const EmployeeSystem = require('../js/systems/EmployeeSystem');
 const MarketingSystem = require('../js/systems/MarketingSystem');
 const FinanceSystem = require('../js/systems/FinanceSystem');
 const FinanceChartRenderer = require('../js/ui/charts/FinanceChartRenderer');
+const TimeManager = require('../js/core/TimeManager');
+const BusinessSimulationSystem = require('../js/systems/BusinessSimulationSystem');
+const OperatingMetricsSystem = require('../js/systems/OperatingMetricsSystem');
 
 function clone(value) { return JSON.parse(JSON.stringify(value)); }
 
@@ -59,7 +62,7 @@ function testMigrationAndRecovery() {
   } });
   const manager = new SaveManager(initialState);
   const loaded = manager.load();
-  assert.strictEqual(loaded.saveVersion, 6);
+  assert.strictEqual(loaded.saveVersion, 7);
   assert.strictEqual(loaded.player.cash, 43210);
   assert.strictEqual(loaded.player.level, 4);
   assert.strictEqual(loaded.furniture.length, 1);
@@ -72,12 +75,61 @@ function testMigrationAndRecovery() {
   assert.strictEqual(loaded.marketing.awareness, 0);
   assert.deepStrictEqual(loaded.marketing.activeCampaigns, []);
   assert.deepStrictEqual(loaded.finance.transactions, []);
+  assert.strictEqual(loaded.cafe.pricing.hourlyRate, 8);
+  assert.deepStrictEqual(loaded.businessSimulation.activeCohorts, []);
 
   global.wx = createWx({ storage: '{broken-json' });
   const recovered = new SaveManager(initialState).load();
-  assert.strictEqual(recovered.saveVersion, 6);
+  assert.strictEqual(recovered.saveVersion, 7);
   assert.strictEqual(recovered.player.cash, 50000);
   assert.ok(recovered.devices.basic_pc);
+}
+
+function simulationFixture(options) {
+  const settings = options || {}; global.wx = createWx(); const saveManager = new SaveManager(initialState); const raw = clone(initialState);
+  const computerCount = settings.basic || settings.gaming || settings.premium || 0; raw.furniture = Array.from({ length: computerCount }, (_, index) => ({ id: 'desk_' + index, type: 'standard_pc_desk', gridX: (index % 6) * 2, gridY: Math.floor(index / 6), rotation: 0 }));
+  (settings.decor || []).forEach((type, index) => raw.furniture.push({ id: 'decor_' + index, type: type, gridX: index * 2, gridY: 4, rotation: 0 }));
+  raw.devices = {
+    basic_pc: { owned: settings.basic || 0, installed: settings.basic || 0, level: 1, condition: 100 },
+    gaming_pc: { owned: settings.gaming || 0, installed: settings.gaming || 0, level: 1, condition: 100 },
+    premium_pc: { owned: settings.premium || 0, installed: settings.premium || 0, level: 1, condition: 100 },
+    gigabit_router: { owned: settings.router ? 1 : 0, installed: settings.router ? 1 : 0, level: settings.routerLevel || 1, condition: 100 },
+    ups_power: { owned: settings.ups ? 1 : 0, installed: settings.ups ? 1 : 0, level: settings.upsLevel || 1, condition: 100 }
+  };
+  raw.employees = settings.employees || []; if (settings.marketing) raw.marketing.activeCampaigns = [{ id: 'online_ads', startDay: 1, endDay: 99 }];
+  const gameState = new GameState(saveManager.normalize(raw), new EventBus()); const eventBus = gameState.eventBus; const timeManager = new TimeManager(gameState, eventBus); const business = new BusinessSimulationSystem(gameState, saveManager, timeManager, eventBus); business.start(); return { gameState: gameState, saveManager: saveManager, timeManager: timeManager, business: business };
+}
+
+function runSimulationDays(fixture, days) { fixture.business.simulateHours(days * 24); return fixture.gameState.getState().businessSimulation.dailyHistory; }
+
+function testBusinessSimulation() {
+  const empty = simulationFixture({}); const emptyHistory = runSimulationDays(empty, 2); assert.ok(emptyHistory.length >= 1); const emptyDay = emptyHistory[0]; assert.ok(emptyDay.potentialCustomers > 0); assert.strictEqual(emptyDay.admittedCustomers, 0); assert.strictEqual(emptyDay.seatIncome, 0); assert.ok(emptyDay.lostNoSeat > 0);
+  assert.strictEqual(new FinanceSystem(empty.gameState, empty.saveManager).getTransactions({ category: 'seat_income' }).length, 0);
+
+  const basic = simulationFixture({ basic: 5, router: true, ups: true }); const basicHistory = runSimulationDays(basic, 3); const basicTotals = basicHistory.reduce((sum, day) => ({ admitted: sum.admitted + day.admittedCustomers, revenue: sum.revenue + day.totalRevenue, occupancy: Math.max(sum.occupancy, day.peakOccupancy) }), { admitted: 0, revenue: 0, occupancy: 0 }); assert.ok(basicTotals.admitted > 0); assert.ok(basicTotals.revenue > 0); assert.ok(basicTotals.occupancy > 0); assert.ok(new FinanceSystem(basic.gameState, basic.saveManager).getTransactions({ category: 'seat_income' }).length > 0);
+  const basicFinance = new FinanceSystem(basic.gameState, basic.saveManager); const cashDelta = basicFinance.getTransactions({}).reduce((sum, item) => sum + (item.direction === 'income' ? item.amount : -item.amount), 0); assert.strictEqual(basicFinance.getCash(), 50000 + cashDelta);
+
+  const gaming = simulationFixture({ gaming: 5, router: true, ups: true }); const gamingHistory = runSimulationDays(gaming, 7); assert.ok(gamingHistory.reduce((sum, day) => sum + day.admittedBySegment.gamer, 0) > 0); assert.ok(gamingHistory.reduce((sum, day) => sum + day.servedSeatHours, 0) >= gamingHistory.reduce((sum, day) => sum + day.admittedCustomers, 0));
+
+  const premium = simulationFixture({ premium: 5, router: true, routerLevel: 3, ups: true }); const premiumHistory = runSimulationDays(premium, 15); assert.ok(premiumHistory.reduce((sum, day) => sum + day.admittedBySegment.streamer, 0) > 0);
+
+  const constrained = simulationFixture({ gaming: 10, router: false, ups: false }); const constrainedHistory = runSimulationDays(constrained, 5); assert.ok(constrainedHistory.reduce((sum, day) => sum + day.lostNetwork + day.lostPower + day.lostService, 0) > 0);
+
+  const unstaffed = simulationFixture({ gaming: 10, router: true, ups: true }); const unstaffedHistory = runSimulationDays(unstaffed, 5);
+  const staffed = simulationFixture({ gaming: 10, router: true, ups: true, employees: [{ id: 'manager', type: 'manager', salary: 10000, attributes: { service: 90, efficiency: 90, technology: 70, marketing: 80 }, traits: ['管理'] }] }); const staffedHistory = runSimulationDays(staffed, 5); assert.ok(staffedHistory.reduce((sum, day) => sum + day.admittedCustomers, 0) >= unstaffedHistory.reduce((sum, day) => sum + day.admittedCustomers, 0)); assert.ok(staffedHistory.reduce((sum, day) => sum + day.lostService, 0) <= unstaffedHistory.reduce((sum, day) => sum + day.lostService, 0)); assert.ok(new OperatingMetricsSystem().getMetrics(staffed.gameState.getState()).employee.serviceCapacity > 5);
+
+  const marketBase = simulationFixture({ basic: 2, router: true, ups: true }); runSimulationDays(marketBase, 2); const basePotential = marketBase.gameState.getState().businessSimulation.dailyHistory.reduce((sum, day) => sum + day.potentialCustomers, 0);
+  const marketed = simulationFixture({ basic: 2, router: true, ups: true, marketing: true }); runSimulationDays(marketed, 2); const marketedState = marketed.gameState.getState(); const marketedPotential = marketedState.businessSimulation.dailyHistory.reduce((sum, day) => sum + day.potentialCustomers, 0); assert.ok(marketedPotential >= basePotential); assert.ok(marketedState.businessSimulation.dailyHistory.reduce((sum, day) => sum + day.lostCustomers, 0) > 0);
+
+  const plain = simulationFixture({ basic: 5, router: true, ups: true }); const plainHistory = runSimulationDays(plain, 5);
+  const decorated = simulationFixture({ basic: 5, router: true, ups: true, decor: ['plant', 'plant', 'sofa', 'decorative_light', 'trash_bin'] }); const decoratedHistory = runSimulationDays(decorated, 5); assert.ok(new OperatingMetricsSystem().getMetrics(decorated.gameState.getState()).decoration.environmentScore > new OperatingMetricsSystem().getMetrics(plain.gameState.getState()).decoration.environmentScore); assert.ok(decoratedHistory.reduce((sum, day) => sum + day.averageSatisfaction, 0) >= plainHistory.reduce((sum, day) => sum + day.averageSatisfaction, 0));
+
+  const finance = new FinanceSystem(basic.gameState, basic.saveManager); const firstDay = basic.gameState.getState().businessSimulation.dailyHistory[0].date; const beforeCount = finance.getTransactions({ category: 'seat_income' }).length; const duplicate = basic.business.settleDay(firstDay); assert.ok(duplicate.skipped || duplicate.results.every((item) => item.duplicate)); assert.strictEqual(finance.getTransactions({ category: 'seat_income' }).length, beforeCount);
+  const lastKey = basic.gameState.getState().businessSimulation.lastProcessedHourKey; const current = basic.timeManager.getCurrentGameTime(); basic.business.processHour(current); assert.strictEqual(basic.gameState.getState().businessSimulation.lastProcessedHourKey, lastKey);
+  const transactionCountBeforeReload = basicFinance.getTransactions({}).length; global.wx = createWx({ storage: basic.gameState.snapshot() }); const reloadSaveManager = new SaveManager(initialState); const reloadedState = new GameState(reloadSaveManager.load(), new EventBus()); const reloadedTime = new TimeManager(reloadedState, reloadedState.eventBus); const reloadedBusiness = new BusinessSimulationSystem(reloadedState, reloadSaveManager, reloadedTime, reloadedState.eventBus); reloadedBusiness.start(); assert.strictEqual(new FinanceSystem(reloadedState, reloadSaveManager).getTransactions({}).length, transactionCountBeforeReload); assert.strictEqual(reloadedState.getState().businessSimulation.lastProcessedHourKey, lastKey);
+  assert.ok(basic.gameState.getState().businessSimulation.activeCohorts.length < 100); assert.ok(basic.gameState.getState().businessSimulation.dailyHistory.length <= 30);
+  const longRun = simulationFixture({ gaming: 10, router: true, ups: true }); runSimulationDays(longRun, 31); assert.strictEqual(longRun.gameState.getState().businessSimulation.dailyHistory.length, 30); assert.ok(longRun.gameState.getState().businessSimulation.activeCohorts.length < 100);
+  const fs = require('fs'), path = require('path'); const sources = ['BusinessSimulationSystem.js', 'SeatAllocator.js', 'OperatingMetricsSystem.js'].map((file) => fs.readFileSync(path.join(__dirname, '../js/systems/' + file), 'utf8')).join('\n'); ['pathfinding', 'collision', 'NPC', '寻路', '碰撞'].forEach((term) => assert.strictEqual(sources.indexOf(term), -1));
 }
 
 function testFinanceLedger() {
@@ -361,6 +413,7 @@ function run() {
   testFinanceLedger();
   testFinanceCharts();
   testDecorationFinanceBatch();
+  testBusinessSimulation();
   testCamera();
   const area = testRuntimeAtSize(844, 390, 3);
   testRuntimeAtSize(667, 375, 2);

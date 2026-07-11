@@ -4,7 +4,10 @@ const DecorationRenderer = require('../map/DecorationRenderer');
 const GridMap = require('../map/GridMap');
 const Camera2D = require('../map/Camera2D');
 const DeviceSystem = require('../systems/DeviceSystem');
+const OperatingMetricsSystem = require('../systems/OperatingMetricsSystem');
 const CanvasUtils = require('../ui/CanvasUtils');
+const BusinessDebugPanel = require('../ui/BusinessDebugPanel');
+const operatingConfig = require('../data/operatingConfig');
 
 function rect(x, y, width, height) { return { x: x, y: y, width: width, height: height }; }
 function inside(point, box) { return point && point.x >= box.x && point.x <= box.x + box.width && point.y >= box.y && point.y <= box.y + box.height; }
@@ -21,6 +24,8 @@ class OverviewScene {
     this.cellSize = 54;
     this.decorationRenderer = new DecorationRenderer(this.assetManager, this.gridMap);
     this.deviceSystem = new DeviceSystem();
+    this.operatingMetricsSystem = new OperatingMetricsSystem();
+    this.debugPanel = operatingConfig.DEBUG_BUSINESS_SIMULATION && deps.businessSimulation ? new BusinessDebugPanel(deps.businessSimulation, this.inputManager, this.requestRender) : null;
     this.camera = new Camera2D({
       worldWidth: this.gridMap.columns * this.cellSize,
       worldHeight: this.gridMap.rows * this.cellSize,
@@ -98,6 +103,11 @@ class OverviewScene {
     return this.cachedSummary;
   }
 
+  getOperatingMetrics(state) {
+    if (this.cachedOperatingState !== state) { this.cachedOperatingState = state; this.cachedOperatingMetrics = this.operatingMetricsSystem.getMetrics(state); }
+    return this.cachedOperatingMetrics;
+  }
+
   drawSectionTitle(context, x, y) {
     context.fillStyle = '#f0c15b';
     context.fillRect(x, y + 3, 3, 15);
@@ -112,14 +122,17 @@ class OverviewScene {
 
   drawDailyPanel(context, bounds, state) {
     const cafe = state.cafe;
+    const business = state.businessSimulation;
+    const today = business.today;
     CanvasUtils.fillRoundedRect(context, bounds, 5, '#0d2232');
     CanvasUtils.strokeRoundedRect(context, bounds, 5, '#344a57', 1);
     context.fillStyle = '#f0c15b'; context.font = 'bold 12px sans-serif'; context.textAlign = 'left';
     context.fillText('今日数据', bounds.x + 10, bounds.y + 18);
+    const averageSatisfaction = today.satisfactionWeight ? Math.round(today.satisfactionTotal / today.satisfactionWeight) : cafe.satisfaction;
     const rows = [
-      ['营业收入', '¥' + cafe.todayIncome.toLocaleString(), '#f2c45e'], ['会员收入', '¥0', '#dfe7e9'],
-      ['商品收入', '¥0', '#dfe7e9'], ['电费', '-¥0', '#e78555'], ['维护费', '-¥0', '#e78555'],
-      ['净利润', '¥' + cafe.todayIncome.toLocaleString(), '#f2c45e']
+      ['上机收入', '¥' + today.seatIncome.toLocaleString(), '#f2c45e'], ['商品收入', '¥' + today.productIncome.toLocaleString(), '#65bfa0'],
+      ['潜在顾客', today.potentialCustomers + '人', '#dfe7e9'], ['实际到店', today.admittedCustomers + '人', '#65bfa0'],
+      ['流失顾客', today.lostCustomers + '人', '#e78555'], ['平均满意', averageSatisfaction + '分', '#f2c45e']
     ];
     const chartHeight = 48;
     const listTop = bounds.y + 26;
@@ -130,8 +143,9 @@ class OverviewScene {
       context.fillStyle = row[2]; context.font = 'bold 9px sans-serif'; context.textAlign = 'right'; context.fillText(row[1], bounds.x + bounds.width - 10, y);
     });
     const chartY = bounds.y + bounds.height - chartHeight;
-    context.fillStyle = '#718897'; context.font = '8px sans-serif'; context.textAlign = 'left'; context.fillText('收入趋势', bounds.x + 10, chartY + 10);
-    const values = [0.18, 0.45, 0.37, 0.66, 0.42, 0.54, 0.78];
+    context.fillStyle = '#718897'; context.font = '8px sans-serif'; context.textAlign = 'left'; context.fillText('最近7日真实营收', bounds.x + 10, chartY + 10);
+    const history = business.dailyHistory.slice(-7); const revenues = history.map((item) => item.totalRevenue || 0); const maxRevenue = Math.max(1, ...revenues);
+    const values = Array(Math.max(0, 7 - revenues.length)).fill(0).concat(revenues.map((value) => value / maxRevenue));
     context.strokeStyle = '#e9c34f'; context.lineWidth = 2; context.beginPath();
     values.forEach((value, index) => {
       const x = bounds.x + 10 + index * (bounds.width - 20) / (values.length - 1);
@@ -143,11 +157,12 @@ class OverviewScene {
 
   drawMetricCards(context, bounds, state, summary) {
     const cafe = state.cafe;
+    const business = state.businessSimulation; const today = business.today; const metrics = this.getOperatingMetrics(state); const current = Number(cafe.currentCustomers) || 0; const capacity = metrics.equipment.installedComputerCount; const powerShort = metrics.equipment.powerCapacity < metrics.equipment.currentPowerDemand + current * 0.65; const networkSeats = Math.floor(metrics.equipment.networkCapacity);
     const cards = [
-      ['上座率', cafe.occupancyRate + '%', '#4e8fc1'], ['环境', cafe.environment + '分', '#6cad78'],
-      ['设备', summary.equipmentScore + '分', '#dd8452'], ['服务', cafe.service + '分', '#b78bc1'],
-      ['卫生', cafe.hygiene + '分', '#7fae65'], ['月收入', '¥' + cafe.monthlyIncome.toLocaleString(), '#d9a941'],
-      ['月支出', '¥' + cafe.monthlyExpense.toLocaleString(), '#cf7654'], ['月利润', '¥' + cafe.monthlyProfit.toLocaleString(), '#69aa75']
+      ['正在上机', current + ' / ' + capacity, '#4e8fc1'], ['上座率', cafe.occupancyRate + '%', '#4e8fc1'],
+      ['今日顾客', today.admittedCustomers + '人', '#6cad78'], ['今日流失', today.lostCustomers + '人', '#dd8452'],
+      ['今日收入', '¥' + cafe.todayIncome.toLocaleString(), '#d9a941'], ['网络状态', networkSeats >= current ? '正常' : '拥堵', networkSeats >= current ? '#69aa75' : '#cf7654'],
+      ['供电状态', powerShort ? '不足' : '正常', powerShort ? '#cf7654' : '#69aa75'], ['服务压力', current <= metrics.employee.serviceCapacity ? '正常' : '过载', current <= metrics.employee.serviceCapacity ? '#69aa75' : '#cf7654']
     ];
     const gap = 4;
     const cardWidth = (bounds.width - gap * (cards.length - 1)) / cards.length;
@@ -191,6 +206,8 @@ class OverviewScene {
     CanvasUtils.strokeRoundedRect(context, this.mapBounds, 5, '#8d682e', 1);
     this.resetHitBox = rect(this.mapBounds.x + this.mapBounds.width - 44, this.mapBounds.y + 4, 40, 40);
     this.drawResetButton(context);
+    const usage = state.cafe.currentCustomers || 0;
+    if (usage > 0) { const status = rect(this.mapBounds.x + 8, this.mapBounds.y + 7, 88, 20); CanvasUtils.fillRoundedRect(context, status, 4, 'rgba(8,35,45,0.9)'); context.fillStyle = '#65d1ae'; context.font = 'bold 9px sans-serif'; context.textAlign = 'center'; context.fillText('● 使用中 ' + usage + ' 台', status.x + status.width / 2, status.y + 14); }
     if (this.showPanHint) {
       const hint = rect(this.mapBounds.x + 10, this.mapBounds.y + this.mapBounds.height - 28, 132, 21);
       CanvasUtils.fillRoundedRect(context, hint, 4, 'rgba(6,20,30,0.78)');
@@ -198,6 +215,7 @@ class OverviewScene {
     }
     this.drawDailyPanel(context, rect(bounds.x + padding * 2 + mapWidth, bodyY, sideWidth, bodyHeight), state);
     this.drawMetricCards(context, rect(bounds.x + padding, bodyY + bodyHeight + padding, bounds.width - padding * 2, metricsHeight), state, summary);
+    if (this.debugPanel) this.debugPanel.draw(context, rect(this.mapBounds.x + 8, this.mapBounds.y + 30, 178, 93));
   }
 }
 

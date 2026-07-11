@@ -1,7 +1,7 @@
 'use strict';
 
 const STORAGE_KEY = 'internetCafeOwnerSave';
-const CURRENT_VERSION = 6;
+const CURRENT_VERSION = 7;
 const furnitureCatalog = require('../data/furnitureCatalog');
 const GridMap = require('../map/GridMap');
 const FurnitureManager = require('../map/FurnitureManager');
@@ -88,6 +88,7 @@ class SaveManager {
     if (version < 4) migrated = this.migrateV3ToV4(migrated);
     if (version < 5) migrated = this.migrateV4ToV5(migrated);
     if (version < 6) migrated = this.migrateV5ToV6(migrated);
+    if (version < 7) migrated = this.migrateV6ToV7(migrated);
     if (version > CURRENT_VERSION) {
       console.warn('[存档] 检测到更高版本存档，将使用兼容字段读取');
     }
@@ -126,6 +127,15 @@ class SaveManager {
     return data;
   }
 
+  migrateV6ToV7(data) {
+    if (!isPlainObject(data.cafe)) data.cafe = {};
+    if (!isPlainObject(data.cafe.pricing)) data.cafe.pricing = { hourlyRate: 8 };
+    if (!isPlainObject(data.time)) data.time = { year: 1, month: 1, day: 1, hour: 8 };
+    if (!Number.isFinite(Number(data.time.hour))) data.time.hour = 8;
+    if (!isPlainObject(data.businessSimulation)) data.businessSimulation = clone(this.defaultState.businessSimulation);
+    return data;
+  }
+
   normalize(data) {
     const merged = mergeDefaults(this.defaultState, data);
     merged.saveVersion = CURRENT_VERSION;
@@ -140,12 +150,21 @@ class SaveManager {
     if (!Array.isArray(merged.marketing.activeCampaigns)) merged.marketing.activeCampaigns = [];
     merged.marketing.cooldowns = isPlainObject(data && data.marketing && data.marketing.cooldowns) ? clone(data.marketing.cooldowns) : {};
     merged.finance = this.financeSystem.normalizeFinance(data && data.finance);
+    merged.time.hour = Math.max(0, Math.min(23, Math.floor(Number(merged.time.hour) || 0)));
+    if (!isPlainObject(merged.cafe.pricing)) merged.cafe.pricing = { hourlyRate: 8 };
+    merged.cafe.pricing.hourlyRate = Math.max(0, Number(merged.cafe.pricing.hourlyRate) || 8);
+    if (!isPlainObject(merged.businessSimulation)) merged.businessSimulation = clone(this.defaultState.businessSimulation);
+    merged.businessSimulation.lastProcessedHourKey = typeof merged.businessSimulation.lastProcessedHourKey === 'string' ? merged.businessSimulation.lastProcessedHourKey : null;
+    merged.businessSimulation.currentDayKey = typeof merged.businessSimulation.currentDayKey === 'string' ? merged.businessSimulation.currentDayKey : null;
+    merged.businessSimulation.activeCohorts = (Array.isArray(merged.businessSimulation.activeCohorts) ? merged.businessSimulation.activeCohorts : []).filter((item) => item && ['student', 'gamer', 'office_worker', 'streamer'].indexOf(item.segmentType) >= 0 && ['basic', 'gaming', 'premium'].indexOf(item.computerTier) >= 0 && Number(item.count) > 0 && Number(item.remainingHours) > 0).map((item) => ({ id: String(item.id || 'cohort_recovered'), segmentType: item.segmentType, computerTier: item.computerTier, count: Math.floor(Number(item.count)), remainingHours: Math.floor(Number(item.remainingHours)), hourlyRate: Math.max(0, Number(item.hourlyRate) || 8), satisfaction: Math.max(0, Math.min(100, Math.round(Number(item.satisfaction) || 50))) }));
+    merged.businessSimulation.dailyHistory = (Array.isArray(merged.businessSimulation.dailyHistory) ? merged.businessSimulation.dailyHistory : []).filter((item) => item && isPlainObject(item.date)).slice(-30);
     if (!Number.isFinite(Number(merged.player.cash))) merged.player.cash = 0;
     else merged.player.cash = Math.round(Number(merged.player.cash));
     normalizedDevices.warnings.forEach((message) => console.warn('[存档] ' + message));
     const deviceScore = this.deviceSystem.calculateScore(merged.devices);
     let ratings = this.ratingSystem.combineDeviceRating(this.ratingSystem.calculate(merged.furniture), deviceScore);
     ratings = this.ratingSystem.combineEmployeeRating(ratings, this.employeeSystem.getServiceScore(merged));
+    ratings.satisfaction = Math.max(0, Math.min(100, Math.round(Number(merged.cafe.satisfaction) || ratings.overall)));
     merged.cafe = Object.assign({}, merged.cafe, ratings);
     return merged;
   }

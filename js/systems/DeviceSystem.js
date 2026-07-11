@@ -130,6 +130,20 @@ class DeviceSystem {
     };
   }
 
+  getOperatingMetrics(state) {
+    const root = state || (this.gameState && this.gameState.getState()) || {};
+    const pools = [
+      { tier: 'basic', type: 'basic_pc' }, { tier: 'gaming', type: 'gaming_pc' }, { tier: 'premium', type: 'premium_pc' }
+    ].map((item) => {
+      const config = this.catalog.byType[item.type]; const record = this.getRecord(root.devices, item.type);
+      return { tier: item.tier, count: record.installed, performance: Math.round(config.performance * (1 + (record.level - 1) * 0.15) * record.condition / 100), powerUsage: config.powerUsage };
+    });
+    const router = this.getRecord(root.devices, 'gigabit_router'); const routerConfig = this.catalog.byType.gigabit_router;
+    const ups = this.getRecord(root.devices, 'ups_power'); const upsConfig = this.catalog.byType.ups_power;
+    const count = pools.reduce((sum, pool) => sum + pool.count, 0); const performance = pools.reduce((sum, pool) => sum + pool.count * pool.performance, 0);
+    return { installedComputerCount: count, computerPools: pools, averagePerformance: count ? Math.round(performance / count) : 0, equipmentScore: this.calculateScore(root.devices), networkQuality: Math.min(100, 25 + router.installed * 35 + (router.level - 1) * 8), networkCapacity: 5 + router.installed * routerConfig.capacity * (1 + (router.level - 1) * 0.25), powerCapacity: 4 + ups.installed * upsConfig.capacity * (1 + (ups.level - 1) * 0.25), currentPowerDemand: Math.round(this.catalog.items.reduce((sum, config) => sum + this.getRecord(root.devices, config.type).installed * config.powerUsage * (config.requiresComputerSlot ? 0.15 : 1), 0) * 10) / 10 };
+  }
+
   commit(mutator) {
     if (!this.gameState) return { ok: false, message: '设备系统尚未连接游戏状态。' };
     const next = this.gameState.snapshot();
