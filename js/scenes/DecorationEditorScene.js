@@ -71,6 +71,13 @@ class DecorationEditorScene {
       });
     }
     this.inputManager.setGestureHandler(this.gestureHandler);
+    // 预加载电脑变体贴图
+    const variantKeys = ['pc_color_01', 'pc_color_02', 'pc_color_03'];
+    variantKeys.forEach(function(key) {
+      if (!this.assetManager.hasImage(key)) {
+        this.assetManager.loadImage(key, 'assets/textures/furniture/' + key + '.png', function() { this.requestRender(); }.bind(this));
+      }
+    }.bind(this));
     catalog.forEach((item) => {
       const visual = item.visual || {};
       if (visual.spriteKey && visual.spritePath && !this.assetManager.hasImage(visual.spriteKey)) {
@@ -212,6 +219,13 @@ class DecorationEditorScene {
       const price = isComputerPurchase ? this._computerPurchase.price : config.price;
       if (this.draft.draftCash < price) { this.draft.setToast('现金不足'); this.requestRender(); return; }
       const created = this.furnitureManager.create(item.type, item.gridX, item.gridY, item.rotation);
+      if (isComputerPurchase) {
+        // 轮流分配电脑颜色
+        const state = this.gameState.getState();
+        if (state.nextComputerColor === undefined) state.nextComputerColor = 0;
+        created.textureVariant = state.nextComputerColor % 3;
+        state.nextComputerColor += 1;
+      }
       this.draft.draftFurniture = this.furnitureManager.add(this.draft.draftFurniture, created);
       this.draft.draftCash -= price;
       if (isComputerPurchase) {
