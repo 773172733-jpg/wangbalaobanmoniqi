@@ -290,12 +290,13 @@ class DecorationRenderer {
     const sx = Math.round(origin.x);
     const sy = Math.round(origin.y);
     if (floorImg && floorImg.width && floorImg.height) {
+      context.imageSmoothingEnabled = false;
       const ts = Math.round(cell * camera.zoom);
       const cols = Math.ceil(worldW / ts);
       const rows = Math.ceil(worldH / ts);
       for (let row = 0; row < rows; row++) {
         for (let col = 0; col < cols; col++) {
-          context.drawImage(floorImg, sx + col * ts, sy + row * ts, ts, ts);
+          context.drawImage(floorImg, sx + col * ts, sy + row * ts, ts + 1, ts + 1);
         }
       }
     } else {
