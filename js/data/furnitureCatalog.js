@@ -41,6 +41,7 @@ module.exports = [
     visual: Object.assign(visual({ body: '#5b3826', accent: '#2d91c7' }), {
       spriteKey: 'pc_color_01',
       spritePath: 'assets/textures/furniture/pc_color_01.png',
+      renderScale: 3,
       variants: [
         { spriteKey: 'pc_color_01', spritePath: 'assets/textures/furniture/pc_color_01.png' },
         { spriteKey: 'pc_color_02', spritePath: 'assets/textures/furniture/pc_color_02.png' },
@@ -63,6 +64,7 @@ module.exports = [
     visual: Object.assign(visual({ body: '#4b2e22', accent: '#38a7df' }), {
       spriteKey: 'pc_color_01',
       spritePath: 'assets/textures/furniture/pc_color_01.png',
+      renderScale: 3,
       variants: [
         { spriteKey: 'pc_color_01', spritePath: 'assets/textures/furniture/pc_color_01.png' },
         { spriteKey: 'pc_color_02', spritePath: 'assets/textures/furniture/pc_color_02.png' },
