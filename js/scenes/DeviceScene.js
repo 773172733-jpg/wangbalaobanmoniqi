@@ -151,14 +151,14 @@ class DeviceScene {
           this.requestRender();
           return;
         }
-        // 跳转到装修编辑器进行拖放放置
-        state.pendingDevicePlacement = { type: this.selectedType, price: price, name: config.name };
-        if (this.onOpenDecorationEditor) {
-          this.onOpenDecorationEditor();
-        } else {
-          this.toast = '装修入口未就绪';
-          this.requestRender();
-        }
+        this.ensureMapReady();
+        this.placementMode = true;
+        this.placementType = this.selectedType;
+        this.placementGridCell = null;
+        this.placementCell = null;
+        this.placementValid = false;
+        this.toast = '请在地图上点击选择电脑放置位置';
+        this.requestRender();
         return;
       }
     }
@@ -317,12 +317,20 @@ class DeviceScene {
       this.requestRender();
       return;
     }
-    if (!this.deviceSystem.isFurnitureAreaFree(state.furniture, deskType, gx, gy)) {
+    // Check if position is free
+    const furniture = state.furniture || [];
+    const occupied = furniture.some(function(f) {
+      if (!f) return false;
+      const fc = this.deviceSystem.furnitureByType[f.type];
+      if (!fc) return false;
+      return !(gx + deskConfig.width <= f.gridX || f.gridX + fc.width <= gx || gy + deskConfig.height <= f.gridY || f.gridY + fc.height <= gy);
+    }.bind(this));
+    if (occupied) {
       this.toast = '该位置已被占用';
       this.requestRender();
       return;
     }
-    // Save values before clearing state
+    
     const purchaseType = this.placementType;
     const targetX = gx;
     const targetY = gy;
@@ -331,28 +339,31 @@ class DeviceScene {
     this.placementGridCell = null;
     this.cachedState = null;
     this.cachedSummary = null;
-    // Use DeviceSystem.purchase for proper finance tracking
+    
+    // Purchase the device
     const result = this.deviceSystem.purchase(purchaseType);
     if (!result.ok) {
       this.toast = result.message;
       this.requestRender();
       return;
     }
-    // Move auto-placed desk to chosen position
+    
+    // Add desk furniture to map
     const freshState = this.gameState.getState();
-    const desks = (freshState.furniture || []).filter(f => f && f.sourceSystem === 'device');
-    const lastDesk = desks[desks.length - 1];
-    if (lastDesk) {
-      lastDesk.gridX = targetX;
-      lastDesk.gridY = targetY;
-    } else {
-      this.deviceSystem.createComputerDeskAt(freshState, purchaseType, targetX, targetY);
-    }
+    if (!freshState.furniture) freshState.furniture = [];
+    const deskId = 'device_desk_' + Date.now() + '_' + Math.floor(Math.random() * 10000);
+    freshState.furniture.push({
+      id: deskId,
+      type: deskType,
+      gridX: targetX,
+      gridY: targetY,
+      rotation: 0,
+      sourceSystem: 'device'
+    });
     this.toast = '已购买并放置于(' + (targetX+1) + ',' + (targetY+1) + ')';
     this.deviceSystem.saveManager && this.deviceSystem.saveManager.save(freshState);
     this.requestRender();
   }
-
   cancelPlacement() {
     this.placementMode = false;
     this.placementType = null;

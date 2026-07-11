@@ -58,24 +58,8 @@ class DecorationEditorScene {
   enter() {
     this.draft = new DecorationDraft(this.gameState.getState(), this.ratingSystem);
 
-    // 检测设备放置模式
-    const enterState = this.gameState.getState();
-    if (enterState.pendingDevicePlacement) {
-      this.devicePlacementMode = true;
-      this.devicePlacementData = enterState.pendingDevicePlacement;
-      delete enterState.pendingDevicePlacement;
-      const deskMap = { basic_pc: 'standard_pc_desk', gaming_pc: 'double_gaming_desk', premium_pc: 'vip_pc_set' };
-      const deskType = deskMap[this.devicePlacementData.type] || 'standard_pc_desk';
-      this._prePlacementDeskCount = (enterState.furniture || []).filter(function(f) { return f && f.type === deskType; }).length;
-      this.draft.selectCatalog(deskType);
-      this.drawerOpen = true;
-      this.category = '设备';
-      this.detailOpen = true;
-      this.showToast('请拖动' + this.devicePlacementData.name + '到地图上放置');
-    } else {
-      this.drawerOpen = false;
-      this.detailOpen = false;
-    }
+    this.drawerOpen = false;
+    this.detailOpen = false;
           console.log('[Decoration] expand: draft recreated, draftFurniture count=' + this.draft.draftFurniture.length);
     
     this.gesture = null;
@@ -281,20 +265,11 @@ class DecorationEditorScene {
   showConfirm(text, actions) { this.draft.confirm = { text, actions }; this.requestRender(); }
 
   requestExit() {
-    // 设备放置模式：自动保存并处理购买
-    if (this.devicePlacementMode) {
-      if (this.draft.dirty) {
-        this.savePlan(false);
-      }
-      this.completeDevicePurchase();
-      this.leave(); this.onExit();
-      return;
-    }
     if (!this.draft.dirty) { this.exitToMain(); return; }
     this.showConfirm('当前装修方案尚未保存。', [
-      { label: '继续装修', action: function() {} },
-      { label: '放弃修改', action: function() { this.draft.resetFromState(this.gameState.getState()); this.exitToMain(); }.bind(this) },
-      { label: '保存并退出', action: function() { this.savePlan(true); }.bind(this), gold: true }
+      { label: '继续装修', action: () => {} },
+      { label: '放弃修改', action: () => { this.draft.resetFromState(this.gameState.getState()); this.exitToMain(); } },
+      { label: '保存并退出', action: () => this.savePlan(true), gold: true }
     ]);
   }
 
@@ -394,7 +369,7 @@ class DecorationEditorScene {
     CanvasUtils.fillRoundedRect(context, box, 7, '#0d2232'); CanvasUtils.strokeRoundedRect(context, box, 7, '#d3a845', 1);
     context.fillStyle = '#f3d47d'; context.font = 'bold 13px sans-serif'; context.textAlign = 'left'; context.fillText('家具库', box.x + 12, box.y + 22);
     this.button(context, 'drawer:close', rect(box.x + box.width - 46, box.y + 2, 40, 40), '×', true, () => { this.drawerOpen = false; this.requestRender(); });
-    const categories = ['全部', '家具', '装饰', '设备', '扩建'];
+    const categories = ['家具', '装饰', '设备', '扩建'];
     const tabW = (box.width - 16) / categories.length;
     categories.forEach((name, index) => this.button(context, 'drawer:cat:' + name, rect(box.x + 8 + index * tabW, box.y + 43, tabW - 3, 40), name, true, () => { this.category = name; this.catalogScroll = 0; this.requestRender(); }, this.category === name));
     const listTop = box.y + 90;
@@ -405,7 +380,8 @@ class DecorationEditorScene {
       return;
     }
     const allItems = this.category === '全部' ? catalog : catalog.filter((item) => item.category === this.category);
-    const items = allItems.filter((item) => item.category !== '电脑');
+    const hiddenTypes = ['standard_pc_desk', 'double_gaming_desk', 'vip_pc_set'];
+    const items = allItems.filter((item) => item.category !== '电脑' && !hiddenTypes.includes(item.type));
     const contentH = items.length * (cardH + 6);
     this.catalogScroll = Math.min(this.catalogScroll, Math.max(0, contentH - visibleH));
     context.save(); context.beginPath(); context.rect(box.x + 5, listTop, box.width - 10, visibleH); context.clip();
