@@ -3,8 +3,6 @@
 const CanvasUtils = require('../ui/CanvasUtils');
 const FinanceSystem = require('../systems/FinanceSystem');
 const categories = require('../data/financeCategories');
-const settings = require('../data/settings');
-const { GAME_VERSION } = require('../data/version');
 const ChartRenderer = require('../ui/charts/FinanceChartRenderer');
 
 function rect(x, y, width, height) { return { x: x, y: y, width: width, height: height }; }
@@ -24,7 +22,7 @@ class FinanceScene {
 
   button(context, id, box, label, enabled, action, selected) { CanvasUtils.fillRoundedRect(context, box, 4, !enabled ? '#263845' : selected ? '#a97022' : '#153247'); CanvasUtils.strokeRoundedRect(context, box, 4, enabled && selected ? '#efc45c' : '#3a5362', 1); context.fillStyle = enabled ? '#f5f0df' : '#728591'; context.font = 'bold 9px sans-serif'; context.textAlign = 'center'; context.fillText(label, box.x + box.width / 2, box.y + box.height / 2 + 3); if (enabled) this.inputManager.register(id, box, action); }
 
-  drawTabs(context, box) { const tabs = [['overview', '财务总览'], ['report', '月度报表'], ['ledger', '收支流水'], ['settings', '设置']]; tabs.forEach((tab, index) => this.button(context, 'finance:tab:' + tab[0], rect(box.x + index * 104, box.y, 98, box.height), tab[1], true, () => { this.tab = tab[0]; this.selectedTransaction = null; this.requestRender(); }, this.tab === tab[0])); }
+  drawTabs(context, box) { const tabs = [['overview', '财务总览'], ['report', '月度报表'], ['ledger', '收支流水']]; tabs.forEach((tab, index) => this.button(context, 'finance:tab:' + tab[0], rect(box.x + index * 104, box.y, 98, box.height), tab[1], true, () => { this.tab = tab[0]; this.selectedTransaction = null; this.requestRender(); }, this.tab === tab[0])); }
 
   drawCards(context, box, state, summary) {
     const values = [['当前现金', this.system.getCash(state)], ['营业收入', summary.operatingIncome], ['经营支出', summary.operatingExpense], ['投资支出', summary.capitalExpense], ['经营利润', summary.operatingProfit], ['现金净流量', summary.netCashFlow]]; const gap = 5; const width = (box.width - gap * 5) / 6;
@@ -71,47 +69,12 @@ class FinanceScene {
   drawTransactionDetail(context, box, item) { CanvasUtils.fillRoundedRect(context, box, 5, '#102638'); CanvasUtils.strokeRoundedRect(context, box, 5, '#d3a845', 1); context.fillStyle = '#efc35d'; context.font = 'bold 10px sans-serif'; context.textAlign = 'left'; context.fillText('流水详情', box.x + 9, box.y + 18); const rows = [['编号', item.id.slice(-14)], ['日期', '第' + item.gameDate.year + '年' + item.gameDate.month + '月' + item.gameDate.day + '日'], ['类别', categories.byId[item.category].name], ['金额', (item.direction === 'income' ? '+' : '-') + this.money(item.amount)], ['描述', item.description], ['来源', item.sourceSystem], ['现金变化', this.money(item.cashBefore) + ' → ' + this.money(item.cashAfter)]]; rows.forEach((row, index) => { const y = box.y + 42 + index * 24; context.fillStyle = '#8299a7'; context.font = '8px sans-serif'; context.fillText(row[0], box.x + 9, y); context.fillStyle = '#e8eeea'; context.textAlign = 'right'; context.fillText(String(row[1]).slice(0, 24), box.x + box.width - 9, y); context.textAlign = 'left'; }); }
 
 
-  drawSettings(context, box) {
-    const config = settings.getSettings();
-    const centerX = box.x + box.width / 2;
-    let y = box.y + 16;
-
-    // Title
-    context.fillStyle = '#f0c15b'; context.font = 'bold 14px sans-serif'; context.textAlign = 'center';
-    context.fillText('游戏设置', centerX, y); y += 32;
-
-    // BGM switch
-    CanvasUtils.fillRoundedRect(context, rect(box.x + 16, y, box.width - 32, 46), 5, '#0d2232');
-    CanvasUtils.strokeRoundedRect(context, rect(box.x + 16, y, box.width - 32, 46), 5, '#314958', 1);
-    context.fillStyle = '#e8eeea'; context.font = '12px sans-serif'; context.textAlign = 'left';
-    context.fillText('背景音乐', box.x + 32, y + 30);
-    this.button(context, 'settings:bgm', rect(box.x + box.width - 96, y + 10, 64, 26),
-      config.bgmEnabled ? 'ON' : 'OFF', true,
-      () => { settings.setBgm(!settings.isBgmEnabled()); this.requestRender(); },
-      false, config.bgmEnabled);
-    y += 56;
-
-    // SFX switch
-    CanvasUtils.fillRoundedRect(context, rect(box.x + 16, y, box.width - 32, 46), 5, '#0d2232');
-    CanvasUtils.strokeRoundedRect(context, rect(box.x + 16, y, box.width - 32, 46), 5, '#314958', 1);
-    context.fillStyle = '#e8eeea'; context.font = '12px sans-serif'; context.textAlign = 'left';
-    context.fillText('按键音', box.x + 32, y + 30);
-    this.button(context, 'settings:sfx', rect(box.x + box.width - 96, y + 10, 64, 26),
-      config.sfxEnabled ? 'ON' : 'OFF', true,
-      () => { settings.setSfx(!settings.isSfxEnabled()); this.requestRender(); },
-      false, config.sfxEnabled);
-    y += 66;
-
-    // Version
-    context.fillStyle = '#718897'; context.font = '10px monospace'; context.textAlign = 'center';
-    context.fillText('版本号: V ' + GAME_VERSION, centerX, y);
-  }
   render(context, bounds, state) {
     context.fillStyle = '#081824'; context.fillRect(bounds.x, bounds.y, bounds.width, bounds.height); const padding = 7; const summary = this.getSummary(state);
     this.drawCards(context, rect(bounds.x + padding, bounds.y + padding, bounds.width - padding * 2, 42), state, summary); this.drawTabs(context, rect(bounds.x + padding, bounds.y + 55, bounds.width - padding * 2, 31));
-    if (this.tab !== 'overview' && this.tab !== 'settings') this.drawMonthNav(context, rect(bounds.x + bounds.width - 245, bounds.y + 55, 238, 31), state);
+    if (this.tab !== 'overview') this.drawMonthNav(context, rect(bounds.x + bounds.width - 245, bounds.y + 55, 238, 31), state);
     const content = rect(bounds.x + padding, bounds.y + 93, bounds.width - padding * 2, Math.max(1, bounds.height - 100));
-    if (this.tab === 'overview') this.drawOverview(context, content, state, summary); else if (this.tab === 'report') this.drawReport(context, content, summary); else if (this.tab === 'settings') this.drawSettings(context, content); else this.drawLedger(context, content);
+    if (this.tab === 'overview') this.drawOverview(context, content, state, summary); else if (this.tab === 'report') this.drawReport(context, content, summary); else this.drawLedger(context, content);
   }
 }
 
