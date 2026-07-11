@@ -1,4 +1,4 @@
-'use strict';
+﻿'use strict';
 
 class FurnitureManager {
   constructor(catalogByType, gridMap) {
@@ -78,6 +78,8 @@ class FurnitureManager {
         gridY: Math.floor(Number(raw.gridY)),
         rotation: this.normalizeRotation(raw.rotation)
       };
+      if (raw.textureVariant != null) item.textureVariant = raw.textureVariant;
+      if (raw.sourceSystem) item.sourceSystem = raw.sourceSystem;
       if (!Number.isFinite(item.gridX) || !Number.isFinite(item.gridY)) return;
       if (this.gridMap.validatePlacement(result, this.catalogByType, item, item.id).ok) result.push(item);
     });
