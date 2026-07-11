@@ -1,7 +1,7 @@
 'use strict';
 
 const initialState = {
-  saveVersion: 4,
+  saveVersion: 5,
   player: {
     level: 1,
     cash: 50000,
@@ -35,6 +35,12 @@ const initialState = {
   employeeMarket: {
     refreshTime: '',
     candidates: []
+  },
+  marketing: {
+    awareness: 0,
+    activeCampaigns: [],
+    cooldowns: {},
+    totalSpent: 0
   },
   customers: {},
   furniture: [],

@@ -9,6 +9,7 @@ const DeviceSystem = require('../js/systems/DeviceSystem');
 const Camera2D = require('../js/map/Camera2D');
 const Game = require('../js/core/Game');
 const EmployeeSystem = require('../js/systems/EmployeeSystem');
+const MarketingSystem = require('../js/systems/MarketingSystem');
 
 function clone(value) { return JSON.parse(JSON.stringify(value)); }
 
@@ -56,7 +57,7 @@ function testMigrationAndRecovery() {
   } });
   const manager = new SaveManager(initialState);
   const loaded = manager.load();
-  assert.strictEqual(loaded.saveVersion, 4);
+  assert.strictEqual(loaded.saveVersion, 5);
   assert.strictEqual(loaded.player.cash, 43210);
   assert.strictEqual(loaded.player.level, 4);
   assert.strictEqual(loaded.furniture.length, 1);
@@ -66,12 +67,59 @@ function testMigrationAndRecovery() {
   assert.strictEqual(loaded.devices.basic_pc.condition, 0);
   assert.deepStrictEqual(loaded.employees, []);
   assert.ok(Array.isArray(loaded.employeeMarket.candidates));
+  assert.strictEqual(loaded.marketing.awareness, 0);
+  assert.deepStrictEqual(loaded.marketing.activeCampaigns, []);
 
   global.wx = createWx({ storage: '{broken-json' });
   const recovered = new SaveManager(initialState).load();
-  assert.strictEqual(recovered.saveVersion, 4);
+  assert.strictEqual(recovered.saveVersion, 5);
   assert.strictEqual(recovered.player.cash, 50000);
   assert.ok(recovered.devices.basic_pc);
+}
+
+function testMarketingRules() {
+  global.wx = createWx();
+  const saveManager = new SaveManager(initialState);
+  const state = saveManager.createNew();
+  state.cafe.overall = 80;
+  state.cafe.capacity = 20;
+  const gameState = new GameState(state, new EventBus());
+  const system = new MarketingSystem(gameState, saveManager);
+
+  const base = system.getSummary();
+  assert.strictEqual(base.marketingScore, 0);
+  assert.strictEqual(base.brandLevel, 1);
+  assert.strictEqual(base.customerAttraction.rawMultiplier, 1);
+  const beforeCash = gameState.getState().player.cash;
+  assert.ok(system.launch('online_ads').ok);
+  assert.strictEqual(gameState.getState().player.cash, beforeCash - 500);
+  assert.strictEqual(gameState.getState().marketing.awareness, 2);
+  assert.strictEqual(gameState.getState().marketing.totalSpent, 500);
+  assert.strictEqual(system.getActiveCampaigns().length, 1);
+  assert.ok(system.getCustomerAttraction().rawMultiplier > 1);
+  assert.ok(system.getCustomerAttraction().effectiveMultiplier <= system.getCustomerAttraction().rawMultiplier);
+  assert.ok(system.getCustomerAttraction().segments.students > 1);
+  assert.ok(!system.launch('online_ads').ok);
+
+  const saved = saveManager.load();
+  assert.strictEqual(saved.marketing.activeCampaigns.length, 1);
+  assert.strictEqual(saved.marketing.awareness, 2);
+
+  const next = gameState.snapshot();
+  next.time.day = 8;
+  gameState.replace(next);
+  assert.strictEqual(system.getActiveCampaigns().length, 0);
+  assert.strictEqual(system.getCooldownDays('online_ads'), 3);
+  assert.ok(!system.canLaunch('online_ads').ok);
+  const later = gameState.snapshot();
+  later.time.day = 11;
+  gameState.replace(later);
+  assert.strictEqual(system.getCooldownDays('online_ads'), 0);
+  assert.ok(system.canLaunch('online_ads').ok);
+
+  const weak = gameState.snapshot(); weak.cafe.overall = 10; weak.cafe.capacity = 0;
+  assert.ok(system.getCapacityFactor(weak) < 0.5);
+  assert.ok(system.getMarketingScore(weak) >= 0 && system.getMarketingScore(weak) <= 100);
 }
 
 function testEmployeeRules() {
@@ -195,6 +243,10 @@ function testRuntimeAtSize(width, height, pixelRatio) {
   assert.strictEqual(game.inputManager.gestureHandler, game.mainScene.scenes.device.gestureHandler);
   const actionRegions = game.inputManager.regions.filter((item) => item.id.indexOf('device:action:') === 0);
   actionRegions.forEach((item) => assert.ok(item.bounds.width >= 40 && item.bounds.height >= 40));
+  game.mainScene.switchScene('marketing');
+  const marketingRegions = game.inputManager.regions.filter((item) => item.id.indexOf('marketing:launch:') === 0);
+  assert.ok(marketingRegions.length >= 2);
+  marketingRegions.forEach((item) => assert.ok(item.bounds.height >= 30));
   game.mainScene.switchScene('overview');
   assert.strictEqual(game.inputManager.gestureHandler, overview.gestureHandler);
   return overview.mapBounds.width * overview.mapBounds.height;
@@ -204,6 +256,7 @@ function run() {
   testMigrationAndRecovery();
   testDeviceRules();
   testEmployeeRules();
+  testMarketingRules();
   testCamera();
   const area = testRuntimeAtSize(844, 390, 3);
   testRuntimeAtSize(667, 375, 2);

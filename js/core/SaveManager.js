@@ -1,7 +1,7 @@
 'use strict';
 
 const STORAGE_KEY = 'internetCafeOwnerSave';
-const CURRENT_VERSION = 4;
+const CURRENT_VERSION = 5;
 const furnitureCatalog = require('../data/furnitureCatalog');
 const GridMap = require('../map/GridMap');
 const FurnitureManager = require('../map/FurnitureManager');
@@ -84,6 +84,7 @@ class SaveManager {
     if (version < 2) migrated = this.migrateV1ToV2(migrated);
     if (version < 3) migrated = this.migrateV2ToV3(migrated);
     if (version < 4) migrated = this.migrateV3ToV4(migrated);
+    if (version < 5) migrated = this.migrateV4ToV5(migrated);
     if (version > CURRENT_VERSION) {
       console.warn('[存档] 检测到更高版本存档，将使用兼容字段读取');
     }
@@ -112,6 +113,11 @@ class SaveManager {
     return data;
   }
 
+  migrateV4ToV5(data) {
+    if (!isPlainObject(data.marketing)) data.marketing = { awareness: 0, activeCampaigns: [], cooldowns: {}, totalSpent: 0 };
+    return data;
+  }
+
   normalize(data) {
     const merged = mergeDefaults(this.defaultState, data);
     merged.saveVersion = CURRENT_VERSION;
@@ -122,6 +128,9 @@ class SaveManager {
     if (!Array.isArray(merged.employees)) merged.employees = [];
     if (!isPlainObject(merged.employeeMarket)) merged.employeeMarket = { refreshTime: '', candidates: [] };
     if (!Array.isArray(merged.employeeMarket.candidates)) merged.employeeMarket.candidates = [];
+    if (!isPlainObject(merged.marketing)) merged.marketing = clone(this.defaultState.marketing);
+    if (!Array.isArray(merged.marketing.activeCampaigns)) merged.marketing.activeCampaigns = [];
+    merged.marketing.cooldowns = isPlainObject(data && data.marketing && data.marketing.cooldowns) ? clone(data.marketing.cooldowns) : {};
     normalizedDevices.warnings.forEach((message) => console.warn('[存档] ' + message));
     const deviceScore = this.deviceSystem.calculateScore(merged.devices);
     let ratings = this.ratingSystem.combineDeviceRating(this.ratingSystem.calculate(merged.furniture), deviceScore);
