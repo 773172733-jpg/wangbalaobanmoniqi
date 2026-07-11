@@ -10,7 +10,8 @@ class TopBar {
       ['现金', '¥' + state.player.cash.toLocaleString() + (state.player.cash < 0 ? ' 赤字' : '')],
       ['今日收入', '\¥' + cafe.todayIncome.toLocaleString()],
       ['满意度', cafe.satisfaction + '%'],
-      ['当前日期', dateText]
+      ['当前日期', dateText],
+      ['设置', '\u2699']
     ];
     const columnWidth = bounds.width / items.length;
     const compact = bounds.width < 650;
@@ -30,10 +31,10 @@ class TopBar {
       context.font = (compact ? '9px' : '11px') + ' sans-serif';
       context.textAlign = 'center';
       context.fillText(item[0], centerX, bounds.y + bounds.height * 0.36);
-      context.fillStyle = index === 1 || index === 2 ? '#f2c45e' : index === 4 ? '#f0c15b' : '#f4f0df';
-      context.font = (compact ? '13px' : '18px') + ' sans-serif';
+      context.fillStyle = index === 1 || index === 2 ? '#f2c45e' : index === 5 ? '#f0c15b' : '#f4f0df';
+      context.font = (index === 5 ? (compact ? '14px' : '18px') : (index === 4 ? '' : 'bold ') + (compact ? '11px' : '15px') + ' sans-serif');
       context.fillText(item[1], centerX, bounds.y + bounds.height * 0.7);
-      if (index === 4 && inputManager && onSettings) {
+      if (index === 5 && inputManager && onSettings) {
         const gearBox = { x: bounds.x + index * columnWidth, y: bounds.y, width: columnWidth, height: bounds.height };
         inputManager.register('topbar:settings', gearBox, onSettings);
       }
