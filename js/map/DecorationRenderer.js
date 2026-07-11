@@ -91,7 +91,7 @@ class DecorationRenderer {
       context.textAlign = 'center';
       context.fillText(label, rect.x + rect.width / 2, rect.y + rect.height / 2 + 4);
       return;
-    }    }
+    }
   }
 
   drawSprite(context, rect, config, rotation) {
