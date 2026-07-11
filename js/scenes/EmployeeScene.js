@@ -36,7 +36,6 @@ this.system.ensureMarket(false);
     if (!this.selectedId && employees.length) this.selectedId = employees[0].id;
     this.scrollOffset = 0;
     this.marketScroll = 0;
-    this.marketScroll = 0;
     this._isDragging = false;
     if (this.inputManager) this.inputManager.setGestureHandler(this.gestureHandler);
     const avatarKeys = ['cleaner', 'girl', 'waiter', 'manager', 'cashier', 'youth'];
@@ -45,13 +44,6 @@ this.system.ensureMarket(false);
         this.assetManager.loadImage(k, 'assets/textures/avatar/' + k + '.png', () => this.requestRender());
       }
     });
-    context.restore();
-    // Scrollbar
-    if (totalContentH > viewH) {
-      const sbW = 4; const sbX = box.x + box.width - 10; const sbH = Math.max(20, viewH * viewH / totalContentH);
-      const sbY = box.y + (this.marketScroll || 0) * viewH / totalContentH;
-      CanvasUtils.fillRoundedRect(context, { x: sbX, y: sbY, width: sbW, height: sbH }, 2, '#5a7d94');
-    }
   }
 
   leave() {
@@ -78,26 +70,25 @@ this.system.ensureMarket(false);
 
 
   onTouchStart(event) {
-    if (this.tab === 'market') { const touches = event.touches || []; if (touches.length) { this._gestureStartY = touches[0].clientY; this._gestureStartOffset = this.marketScroll || 0; this._isDragging = false; } return; }
-    if (this.tab === 'market') { const touches = event.touches || []; if (!touches.length) return; const point = { x: touches[0].clientX, y: touches[0].clientY }; if (this._gestureStartY === 0) return; const dy = this._gestureStartY - point.y; if (Math.abs(dy) > 5) this._isDragging = true; if (this._isDragging) { this.marketScroll = Math.max(0, this._gestureStartOffset + dy); this.requestRender(); } return; }
+    const touches = event.touches || [];
+    if (!touches.length) return;
+    if (this.tab === 'market') { this._gestureStartY = touches[0].clientY; this._gestureStartOffset = this.marketScroll || 0; this._isDragging = false; return; }
     if (this.tab !== 'mine') return;
     this._gestureStartY = touches[0].clientY;
     this._gestureStartOffset = this.scrollOffset || 0;
     this._isDragging = false;
   }
-
   onTouchMove(event) {
-    if (this.tab === 'market') { const touches = event.touches || []; if (touches.length) { this._gestureStartY = touches[0].clientY; this._gestureStartOffset = this.marketScroll || 0; this._isDragging = false; } return; }
-    if (this.tab === 'market') { const touches = event.touches || []; if (!touches.length) return; const point = { x: touches[0].clientX, y: touches[0].clientY }; if (this._gestureStartY === 0) return; const dy = this._gestureStartY - point.y; if (Math.abs(dy) > 5) this._isDragging = true; if (this._isDragging) { this.marketScroll = Math.max(0, this._gestureStartOffset + dy); this.requestRender(); } return; }
-    if (this.tab !== 'mine') return;
+    const touches = event.touches || [];
+    if (!touches.length) return;
     const point = { x: touches[0].clientX, y: touches[0].clientY };
     if (this._gestureStartY === 0) return;
     const dy = this._gestureStartY - point.y;
     if (Math.abs(dy) > 5) this._isDragging = true;
     if (this._isDragging) {
-      this.scrollOffset = this._gestureStartOffset + dy;
+      if (this.tab === 'market') { this.marketScroll = Math.max(0, this._gestureStartOffset + dy); }
+      else { this.scrollOffset = this._gestureStartOffset + dy; }
       this.requestRender();
-      console.log('[Employee] scroll offset=' + Math.round(this.scrollOffset));
     }
   }
 
@@ -117,13 +108,6 @@ this.system.ensureMarket(false);
       context.fillStyle = '#8198a7'; context.font = '9px sans-serif'; context.textAlign = 'left'; context.fillText(item[0], x, box.y + 16);
       context.fillStyle = index === 3 ? '#efc35d' : '#f3efe1'; context.font = 'bold 13px sans-serif'; context.fillText(String(item[1]), x, box.y + 36);
     });
-    context.restore();
-    // Scrollbar
-    if (totalContentH > viewH) {
-      const sbW = 4; const sbX = box.x + box.width - 10; const sbH = Math.max(20, viewH * viewH / totalContentH);
-      const sbY = box.y + (this.marketScroll || 0) * viewH / totalContentH;
-      CanvasUtils.fillRoundedRect(context, { x: sbX, y: sbY, width: sbW, height: sbH }, 2, '#5a7d94');
-    }
   }
 
   drawTabs(context, box) {
@@ -173,13 +157,6 @@ if (avImg && avImg.width) {
         if (cardY + cardH < listBox.y || cardY > listBox.y + listBox.height) return;
         this.drawEmployeeCard(context, rect(listBox.x + innerPad, cardY, listBox.width - innerPad * 2, cardH), employee);
       });
-    context.restore();
-    // Scrollbar
-    if (totalContentH > viewH) {
-      const sbW = 4; const sbX = box.x + box.width - 10; const sbH = Math.max(20, viewH * viewH / totalContentH);
-      const sbY = box.y + (this.marketScroll || 0) * viewH / totalContentH;
-      CanvasUtils.fillRoundedRect(context, { x: sbX, y: sbY, width: sbW, height: sbH }, 2, '#5a7d94');
-    }
       context.restore();
       if (maxScroll > 0) {
         const trackW = 6; const trackX = listBox.x + listBox.width - trackW - 8;
@@ -214,13 +191,18 @@ if (avImg && avImg.width) {
     context.fillStyle = '#8ba0ad'; context.font = '9px sans-serif'; context.textAlign = 'right'; context.fillText('距离明日刷新：游戏时间 1 天', box.x + box.width, box.y - 7);
     const candidates = market.candidates || [];
     const gap = 7; const cardWidth = (box.width - gap * 2) / 3;
-    candidates.slice(0, 5).forEach((candidate, index) => {
+    const cardHeight = (box.height - gap) / 2;
+    const totalRows = Math.ceil(candidates.length / 3);
+    const totalContentH = totalRows * (cardHeight + gap);
+    const maxScroll = Math.max(0, totalContentH - box.height + gap);
+    if ((this.marketScroll || 0) > maxScroll) this.marketScroll = maxScroll;
+    context.save(); context.beginPath(); context.rect(box.x, box.y, box.width, box.height); context.clip();
+    candidates.forEach((candidate, index) => {
       const column = index % 3; const row = Math.floor(index / 3);
-      const cardHeight = (box.height - gap) / 2;
-      const card = rect(box.x + column * (cardWidth + gap), box.y + row * (cardHeight + gap), cardWidth, cardHeight);
+      const card = rect(box.x + column * (cardWidth + gap), box.y + row * (cardHeight + gap) - (this.marketScroll || 0), cardWidth, cardHeight);
+      if (card.y + card.height < box.y || card.y > box.y + box.height) return;
       const q = quality(candidate.quality); const role = catalog.byType[candidate.type];
       CanvasUtils.fillRoundedRect(context, card, 5, '#122c3d'); CanvasUtils.strokeRoundedRect(context, card, 5, q.color, 1);
-      // 右侧头像预留区
       const avatarSize = Math.min(card.height - 14, card.width * 0.35); const avatar = rect(card.x + card.width - avatarSize - 8, card.y + 7, avatarSize, avatarSize);
       CanvasUtils.fillRoundedRect(context, avatar, 4, '#1a384e'); CanvasUtils.strokeRoundedRect(context, avatar, 4, '#2d5068', 1);
       const avImg = candidate.avatar && this.assetManager ? this.assetManager.getImage(candidate.avatar) : null;
@@ -229,30 +211,26 @@ if (avImg && avImg.width) {
       } else {
         context.fillStyle = '#3a607a'; context.font = 'bold 10px sans-serif'; context.textAlign = 'center'; context.fillText('头像', avatar.x + avatar.width / 2, avatar.y + avatar.height / 2 + 3);
       }
-      // 名字 + 职位
       context.fillStyle = '#f4f0df'; context.font = 'bold 12px sans-serif'; context.textAlign = 'left'; context.fillText(candidate.name, card.x + 9, card.y + 20);
       context.fillStyle = '#91a6b2'; context.font = '9px sans-serif'; context.fillText(role.name, card.x + 12 + context.measureText(candidate.name).width, card.y + 21);
-      // 品质 + 核心能力
       context.fillStyle = q.color; context.font = 'bold 9px sans-serif'; context.textAlign = 'left'; context.fillText(q.name + ' · ' + role.name, card.x + 9, card.y + 36);
       const main = candidate.type === 'technician' || candidate.type === 'network_admin' ? '技术 ' + candidate.attributes.technology : (candidate.type === 'operator' ? '营销 ' + candidate.attributes.marketing : '服务 ' + candidate.attributes.service);
       context.fillStyle = '#91a6b2'; context.font = '9px sans-serif'; context.fillText('核心：' + main, card.x + 9, card.y + 54);
-      // 小招聘按钮（核心能力右侧）
       const hireBtn = rect(card.x + avatar.x - card.x - 58, card.y + 42, 50, 20);
       CanvasUtils.fillRoundedRect(context, hireBtn, 3, '#a97022'); CanvasUtils.strokeRoundedRect(context, hireBtn, 3, '#efc45c', 1);
       context.fillStyle = '#f5f0df'; context.font = 'bold 8px sans-serif'; context.textAlign = 'center'; context.fillText('招聘', hireBtn.x + hireBtn.width / 2, hireBtn.y + hireBtn.height / 2 + 3);
       this.inputManager.register('employee:hire:' + candidate.id, hireBtn, () => this.act(() => this.system.hire(candidate.id)));
-      // 工资 + 技能
       context.fillStyle = '#e9ba52'; context.font = '9px sans-serif'; context.textAlign = 'left'; context.fillText('工资 ¥' + candidate.salary + '/月', card.x + 9, card.y + 74);
       context.fillStyle = '#91a6b2'; context.font = '9px sans-serif'; context.textAlign = 'left'; context.fillText(candidate.traits.join(' · '), card.x + 9, card.y + 91);
     });
     context.restore();
-    // Scrollbar
-    if (totalContentH > viewH) {
-      const sbW = 4; const sbX = box.x + box.width - 10; const sbH = Math.max(20, viewH * viewH / totalContentH);
-      const sbY = box.y + (this.marketScroll || 0) * viewH / totalContentH;
+    if (totalContentH > box.height) {
+      const sbW = 4; const sbX = box.x + box.width - 10; const sbH = Math.max(20, box.height * box.height / totalContentH);
+      const sbY = box.y + (this.marketScroll || 0) * box.height / totalContentH;
       CanvasUtils.fillRoundedRect(context, { x: sbX, y: sbY, width: sbW, height: sbH }, 2, '#5a7d94');
     }
   }
+
 
   render(context, bounds, state) {
     const padding = 7; context.fillStyle = '#081824'; context.fillRect(bounds.x, bounds.y, bounds.width, bounds.height);
