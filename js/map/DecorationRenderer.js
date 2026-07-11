@@ -194,7 +194,7 @@ class DecorationRenderer {
     this._wallConfigs = {
       wall_horizontal: { spriteKey: "wall_horizontal", spritePath: "assets/textures/wall/wall_horizontal_01.png", renderScale: 1 },
       wall_vertical: { spriteKey: "wall_vertical", spritePath: "assets/textures/wall/wall_vertical_01.png", renderScale: 1 },
-      wall_corner: { spriteKey: "wall_corner", spritePath: "assets/textures/wall/wall_corner_L_01.png", renderScale: 1 }
+      wall_corner: { spriteKey: "wall_corner", spritePath: "assets/textures/wall/wall_corner_L_01.png", renderScale: 0.85 }
     };
     return this._wallConfigs;
   }
@@ -219,6 +219,10 @@ class DecorationRenderer {
         var cx = box.x + box.width / 2;
         var cy = box.y + box.height / 2;
         context.translate(cx, cy);
+        // Apply flip before rotation
+        var sx = wall.flipH ? -1 : 1;
+        var sy = wall.flipV ? -1 : 1;
+        context.scale(sx, sy);
         context.rotate((wall.rotation || 0) * Math.PI / 180);
         var imgRatio = image.width / image.height;
         var boxRatio = box.width / box.height;

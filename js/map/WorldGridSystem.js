@@ -26,21 +26,27 @@ class WorldGridSystem {
     var cols = this.columns;
     var rows = this.rows;
     var walls = [];
-    // Top and bottom horizontal walls
+    // Top horizontal walls (normal)
     for (var x = 0; x < cols; x++) {
-      walls.push({ type: "wall_horizontal", gridX: x, gridY: -1, rotation: 0 });
-      walls.push({ type: "wall_horizontal", gridX: x, gridY: rows, rotation: 0 });
+      walls.push({ type: "wall_horizontal", gridX: x, gridY: -1, rotation: 0, flipH: false, flipV: false });
     }
-    // Left and right vertical walls
+    // Bottom horizontal walls (mirrored vertically)
+    for (var x = 0; x < cols; x++) {
+      walls.push({ type: "wall_horizontal", gridX: x, gridY: rows, rotation: 0, flipH: false, flipV: true });
+    }
+    // Left vertical walls (normal)
     for (var y = 0; y < rows; y++) {
-      walls.push({ type: "wall_vertical", gridX: -1, gridY: y, rotation: 0 });
-      walls.push({ type: "wall_vertical", gridX: cols, gridY: y, rotation: 0 });
+      walls.push({ type: "wall_vertical", gridX: -1, gridY: y, rotation: 0, flipH: false, flipV: false });
     }
-    // 4 corners rotated
-    walls.push({ type: "wall_corner", gridX: -1, gridY: -1, rotation: 0 });
-    walls.push({ type: "wall_corner", gridX: cols, gridY: -1, rotation: 90 });
-    walls.push({ type: "wall_corner", gridX: cols, gridY: rows, rotation: 180 });
-    walls.push({ type: "wall_corner", gridX: -1, gridY: rows, rotation: 270 });
+    // Right vertical walls (mirrored horizontally)
+    for (var y = 0; y < rows; y++) {
+      walls.push({ type: "wall_vertical", gridX: cols, gridY: y, rotation: 0, flipH: true, flipV: false });
+    }
+    // 4 corners with rotation
+    walls.push({ type: "wall_corner", gridX: -1, gridY: -1, rotation: 0, flipH: false, flipV: false });
+    walls.push({ type: "wall_corner", gridX: cols, gridY: -1, rotation: 90, flipH: false, flipV: false });
+    walls.push({ type: "wall_corner", gridX: cols, gridY: rows, rotation: 180, flipH: false, flipV: false });
+    walls.push({ type: "wall_corner", gridX: -1, gridY: rows, rotation: 270, flipH: false, flipV: false });
     this.walls = walls;
     return walls;
   }
