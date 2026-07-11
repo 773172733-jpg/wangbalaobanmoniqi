@@ -24,7 +24,7 @@ class DeviceScene {
     this.requestRender = deps.requestRender || function () {};
     this.deviceSystem = new DeviceSystem(deps.gameState, deps.saveManager);
     this.expansionSystem = new ExpansionSystem(deps.gameState, deps.saveManager);
-    this.selectedCategory = 'computer';
+    this.selectedCategory = 'network';
     this.selectedType = 'basic_pc';
     this.listScroll = 0;
     this.listBounds = rect(0, 0, 1, 1);
@@ -189,7 +189,7 @@ class DeviceScene {
     context.fillStyle = '#8198a7'; context.font = '9px sans-serif'; context.textAlign = 'center'; context.fillText('分类', box.x + box.width / 2, box.y + 17);
     const top = box.y + 25;
     const height = Math.max(42, Math.min(50, (box.height - 29) / equipmentCatalog.categories.length));
-    equipmentCatalog.categories.forEach((category, index) => {
+    equipmentCatalog.categories.filter(function(c) { return c.id !== 'computer'; }).forEach((category, index) => {
       const hit = rect(box.x + 4, top + index * height, box.width - 8, Math.max(40, height - 4));
       this.button(context, 'device:category:' + category.id, hit, category.label, true, () => {
         this.selectedCategory = category.id;
