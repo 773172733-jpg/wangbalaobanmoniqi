@@ -152,6 +152,13 @@ class SaveManager {
   normalize(data) {
     const merged = mergeDefaults(this.defaultState, data);
     merged.saveVersion = CURRENT_VERSION;
+    var maxGX = 11, maxGY = 7;
+    (Array.isArray(merged.furniture) ? merged.furniture : []).forEach(function(f) {
+      if (f && typeof f.gridX === 'number') maxGX = Math.max(maxGX, f.gridX);
+      if (f && typeof f.gridY === 'number') maxGY = Math.max(maxGY, f.gridY);
+    });
+    this.gridMap.columns = Math.max(this.gridMap.columns || 12, maxGX + 2);
+    this.gridMap.rows = Math.max(this.gridMap.rows || 8, maxGY + 2);
     merged.furniture = this.furnitureManager.sanitize(merged.furniture);
     merged.devices = this.deviceSystem.convertLegacyDevices(data && data.devices);
     const normalizedDevices = this.deviceSystem.sanitizeDevices(merged.devices, merged.furniture);
@@ -174,7 +181,6 @@ class SaveManager {
     merged.businessSimulation.dailyHistory = (Array.isArray(merged.businessSimulation.dailyHistory) ? merged.businessSimulation.dailyHistory : []).filter((item) => item && isPlainObject(item.date)).slice(-30);
     if (!Number.isFinite(Number(merged.player.cash))) merged.player.cash = 0;
     else merged.player.cash = Math.round(Number(merged.player.cash));
-    normalizedDevices.warnings.forEach((message) => console.warn('[存档] ' + message));
     const deviceScore = this.deviceSystem.calculateScore(merged.devices);
     let ratings = this.ratingSystem.combineDeviceRating(this.ratingSystem.calculate(merged.furniture), deviceScore);
     ratings = this.ratingSystem.combineEmployeeRating(ratings, this.employeeSystem.getServiceScore(merged));
