@@ -330,11 +330,11 @@ function testDeviceRules() {
 
   assert.ok(system.purchase('basic_pc').ok);
   assert.ok(system.install('basic_pc').ok); // install is no-op after purchase
-  assert.strictEqual(gameState.getState().devices.basic_pc.installed, 2); // installed = owned
+  assert.strictEqual(gameState.getState().devices.basic_pc.installed, 1); // capped by desk count
   const owned = gameState.getState().devices.basic_pc.owned;
   assert.ok(system.uninstall('basic_pc').ok);
   assert.strictEqual(gameState.getState().devices.basic_pc.owned, owned);
-  assert.strictEqual(gameState.getState().devices.basic_pc.installed, 1); // uninstall is no-op
+  assert.strictEqual(gameState.getState().devices.basic_pc.installed, 1); // uninstall is no-op, installed unchanged
 
   const beforeUpgrade = gameState.getState().player.cash;
   assert.ok(system.upgrade('basic_pc').ok);
