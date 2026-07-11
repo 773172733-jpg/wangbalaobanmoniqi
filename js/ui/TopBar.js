@@ -1,4 +1,4 @@
-'use strict';
+﻿'use strict';
 
 const CanvasUtils = require('./CanvasUtils');
 
@@ -9,7 +9,7 @@ class TopBar {
       ['网吧等级', 'Lv.' + state.player.level],
       ['现金', '¥' + state.player.cash.toLocaleString() + (state.player.cash < 0 ? ' 赤字' : '')],
       ['今日收入', '¥' + cafe.todayIncome.toLocaleString()],
-      ['顾客数量', String(cafe.customerCount)],
+      ['今日客流', String(cafe.customerCount)],
       ['满意度', cafe.satisfaction + '%'],
       ['当前日期', dateText]
     ];
