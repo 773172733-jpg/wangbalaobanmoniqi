@@ -38,7 +38,10 @@ module.exports = [
     capacity: 1,
     ratingBonus: bonus({ equipment: 4 }),
     renderStyle: { body: '#5b3826', accent: '#2d91c7' },
-    visual: visual({ body: '#5b3826', accent: '#2d91c7' })
+    visual: Object.assign(visual({ body: '#5b3826', accent: '#2d91c7' }), {
+      spriteKey: 'standard_pc_desk',
+      spritePath: 'assets/textures/furniture/standard_pc_desk_01.png'
+    })
   },
   {
     type: 'double_gaming_desk',
@@ -52,7 +55,10 @@ module.exports = [
     capacity: 2,
     ratingBonus: bonus({ equipment: 7 }),
     renderStyle: { body: '#4b2e22', accent: '#38a7df' },
-    visual: visual({ body: '#4b2e22', accent: '#38a7df' })
+    visual: Object.assign(visual({ body: '#4b2e22', accent: '#38a7df' }), {
+      spriteKey: 'double_gaming_desk',
+      spritePath: 'assets/textures/furniture/double_gaming_desk_01.png'
+    })
   },
   {
     type: 'vip_pc_set',
@@ -137,48 +143,5 @@ module.exports = [
     ratingBonus: bonus({ hygiene: 2 }),
     renderStyle: { body: '#4f5a61', accent: '#7e8a91' },
     visual: visual({ body: '#4f5a61', accent: '#7e8a91' })
-  }
-
-  {
-    type: 'wall_horizontal',
-    name: '横向墙体',
-    category: '墙体',
-    width: 2,
-    height: 1,
-    price: 300,
-    refundRate: 0.5,
-    maxCount: 0,
-    capacity: 0,
-    ratingBonus: bonus({ environment: 2 }),
-    renderStyle: { body: '#8a7a6a', accent: '#b5a590' },
-    visual: { spriteKey: 'wall_horizontal', spritePath: 'assets/textures/wall/wall_horizontal_01.png', renderScale: 1, renderOffsetX: 0, renderOffsetY: 0, anchorX: 0.5, anchorY: 0.5, naturalWidth: 594, naturalHeight: 501, fallbackStyle: { body: '#8a7a6a', accent: '#b5a590' } }
-  },
-  {
-    type: 'wall_vertical',
-    name: '竖向墙体',
-    category: '墙体',
-    width: 1,
-    height: 2,
-    price: 300,
-    refundRate: 0.5,
-    maxCount: 0,
-    capacity: 0,
-    ratingBonus: bonus({ environment: 2 }),
-    renderStyle: { body: '#8a7a6a', accent: '#b5a590' },
-    visual: { spriteKey: 'wall_vertical', spritePath: 'assets/textures/wall/wall_vertical_01.png', renderScale: 1, renderOffsetX: 0, renderOffsetY: 0, anchorX: 0.5, anchorY: 0.5, naturalWidth: 483, naturalHeight: 567, fallbackStyle: { body: '#8a7a6a', accent: '#b5a590' } }
-  },
-  {
-    type: 'wall_corner',
-    name: 'L型转角墙体',
-    category: '墙体',
-    width: 1,
-    height: 1,
-    price: 400,
-    refundRate: 0.5,
-    maxCount: 0,
-    capacity: 0,
-    ratingBonus: bonus({ environment: 3 }),
-    renderStyle: { body: '#8a7a6a', accent: '#b5a590' },
-    visual: { spriteKey: 'wall_corner', spritePath: 'assets/textures/wall/wall_corner_L_01.png', renderScale: 1, renderOffsetX: 0, renderOffsetY: 0, anchorX: 0.5, anchorY: 0.5, naturalWidth: 485, naturalHeight: 501, fallbackStyle: { body: '#8a7a6a', accent: '#b5a590' } }
   }
 ];

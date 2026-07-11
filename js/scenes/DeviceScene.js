@@ -14,6 +14,7 @@ class DeviceScene {
     const deps = dependencies || {};
     this.title = '设备管理';
     this.inputManager = deps.inputManager;
+    this.assetManager = deps.assetManager || null;
     this.requestRender = deps.requestRender || function () {};
     this.deviceSystem = new DeviceSystem(deps.gameState, deps.saveManager);
     this.expansionSystem = new ExpansionSystem(deps.gameState, deps.saveManager);
@@ -35,6 +36,27 @@ class DeviceScene {
 
   enter() {
     this.gesture = null;
+    this.placementMode = false;
+    this.placementType = null;
+    this.placementGridCell = null;
+    if (!this.worldGrid) {
+      this.worldGrid = new WorldGridSystem(this.expansionSystem, 40);
+      this.gridMap = new GridMap(this.worldGrid.columns, this.worldGrid.rows);
+      this.renderer = new DecorationRenderer(this.assetManager, this.gridMap);
+      const ws = this.worldGrid.getWorldSize();
+      this.camera = new Camera2D({ worldWidth: ws.width, worldHeight: ws.height });
+    }
+    equipmentCatalog.items.forEach((item) => {
+      const visual = item.visual || {};
+      if (this.assetManager && visual.spriteKey && visual.spritePath && !this.assetManager.hasImage(visual.spriteKey)) {
+        this.assetManager.loadImage(visual.spriteKey, visual.spritePath, () => this.requestRender());
+      }
+      (visual.variants || []).forEach((variant) => {
+        if (this.assetManager && variant.spriteKey && variant.spritePath && !this.assetManager.hasImage(variant.spriteKey)) {
+          this.assetManager.loadImage(variant.spriteKey, variant.spritePath, () => this.requestRender());
+        }
+      });
+    });
     this.inputManager.setGestureHandler(this.gestureHandler);
   }
 
@@ -46,6 +68,15 @@ class DeviceScene {
   point(touch) { return touch ? { x: touch.clientX, y: touch.clientY } : null; }
 
   onTouchStart(event) {
+    if (this.placementMode) {
+      if (!event.touches || event.touches.length !== 1) return;
+      const pt = this.point(event.touches[0]);
+      if (pt && this.placementMapBounds && inside(pt, this.placementMapBounds)) {
+        this.updatePlacementCell(pt);
+        this.requestRender();
+      }
+      return;
+    }
     if (!event.touches || event.touches.length !== 1) return;
     const point = this.point(event.touches[0]);
     if (inside(point, this.listBounds)) this.gesture = { start: point, startScroll: this.listScroll, moved: false };
@@ -87,6 +118,26 @@ class DeviceScene {
   }
 
   perform(action) {
+    if (action === 'purchase') {
+      const config = equipmentCatalog.byType[this.selectedType];
+      if (config && config.requiresComputerSlot) {
+        const state = this.gameState.getState();
+        const price = config.purchasePrice;
+        if (state.player.cash < price) {
+          this.toast = '资金不足！需要\xA5' + price.toLocaleString();
+          this.requestRender();
+          return;
+        }
+        this.placementMode = true;
+        this.placementType = this.selectedType;
+        this.placementGridCell = null;
+        this.placementCell = null;
+        this.placementValid = false;
+        this.toast = '请在地图上点击选择电脑放置位置';
+        this.requestRender();
+        return;
+      }
+    }
     const result = this.deviceSystem[action](this.selectedType);
     this.toast = result.message;
     this.cachedState = null;
@@ -127,6 +178,27 @@ class DeviceScene {
     });
   }
 
+  drawDeviceIcon(context, box, config) {
+    const visual = config.visual || {};
+    const image = visual.spriteKey && this.assetManager ? this.assetManager.getImage(visual.spriteKey) : null;
+    CanvasUtils.fillRoundedRect(context, box, 4, visual.color || '#4f5a61');
+    if (image && image.width && image.height) {
+      const padding = 3;
+      const scale = Math.min((box.width - padding * 2) / image.width, (box.height - padding * 2) / image.height);
+      const width = Math.max(1, Math.round(image.width * scale));
+      const height = Math.max(1, Math.round(image.height * scale));
+      context.save();
+      context.imageSmoothingEnabled = false;
+      context.drawImage(image, Math.round(box.x + (box.width - width) / 2), Math.round(box.y + (box.height - height) / 2), width, height);
+      context.restore();
+      return;
+    }
+    context.fillStyle = visual.accent || '#72c5e8';
+    context.font = 'bold 9px sans-serif';
+    context.textAlign = 'center';
+    context.fillText(visual.icon || '', box.x + box.width / 2, box.y + box.height / 2 + 3);
+  }
+
   drawList(context, box, state) {
     this.listBounds = box;
     CanvasUtils.fillRoundedRect(context, box, 5, '#0b2030'); CanvasUtils.strokeRoundedRect(context, box, 5, '#314958', 1);
@@ -142,11 +214,10 @@ class DeviceScene {
       const selected = config.type === this.selectedType;
       CanvasUtils.fillRoundedRect(context, card, 5, selected ? '#183b50' : '#122c3d');
       CanvasUtils.strokeRoundedRect(context, card, 5, selected ? '#d8a947' : '#355063', 1);
-      context.fillStyle = config.visual.color; context.fillRect(card.x + 7, card.y + 9, 42, 42);
-      context.fillStyle = config.visual.accent; context.font = 'bold 9px sans-serif'; context.textAlign = 'center'; context.fillText(config.visual.icon, card.x + 28, card.y + 34);
+      this.drawDeviceIcon(context, rect(card.x + 7, card.y + 9, 42, 42), config);
       const record = this.deviceSystem.getRecord(state.devices, config.type);
       context.textAlign = 'left'; context.fillStyle = '#f4f0df'; context.font = 'bold 11px sans-serif'; context.fillText(config.name, card.x + 58, card.y + 18);
-      context.fillStyle = '#90a5b1'; context.font = '9px sans-serif'; context.fillText('拥有 ' + record.owned + ' · 安装 ' + record.installed + ' · Lv.' + record.level, card.x + 58, card.y + 35);
+      context.fillStyle = '#90a5b1'; context.font = '9px sans-serif'; context.fillText('数量 ' + record.owned + ' · 生效 ' + record.installed + ' · Lv.' + record.level, card.x + 58, card.y + 35);
       const property = config.requiresComputerSlot ? '性能 ' + Math.round(config.performance * (1 + (record.level - 1) * 0.15)) : '容量/加成 ' + config.capacity;
       context.fillStyle = '#66b8db'; context.fillText(property, card.x + 58, card.y + 52);
       context.fillStyle = '#e5b84e'; context.font = 'bold 10px sans-serif'; context.textAlign = 'right'; context.fillText('¥' + config.purchasePrice.toLocaleString(), card.x + card.width - 9, card.y + 20);
@@ -166,7 +237,7 @@ class DeviceScene {
     const category = equipmentCatalog.categories.find((item) => item.id === config.category);
     const levelFactor = 1 + (record.level - 1) * 0.15;
     const rows = [
-      ['分类 / 单价', category.label + ' / ¥' + config.purchasePrice.toLocaleString()], ['拥有 / 安装', record.owned + ' / ' + record.installed],
+      ['分类 / 单价', category.label + ' / ¥' + config.purchasePrice.toLocaleString()], ['数量 / 生效', record.owned + ' / ' + record.installed],
       ['等级 / 状态', 'Lv.' + record.level + ' / ' + record.condition + '%'], ['性能 / 评分', Math.round(config.performance * levelFactor) + ' / ' + Math.round(config.score * levelFactor)],
       ['功耗 / 维护', config.powerUsage + ' / ¥' + config.dailyMaintenance + '日'], ['支持容量', String(config.capacity)]
     ];
@@ -189,9 +260,8 @@ class DeviceScene {
     const actionY = box.y + box.height - buttonH * 2 - gap - 7;
     const upgradeCost = config.upgradeBasePrice * record.level;
     const actions = [
-      ['购买一台', true, 'purchase', true],
-      ['安装一台', record.installed < record.owned && (!config.requiresComputerSlot || summary.freeComputerSlots > 0), 'install'],
-      ['卸下一台', record.installed > 0, 'uninstall'],
+      ['购买1台', true, 'purchase', true],
+      ['售出1台', record.owned > 0, 'sell'],
       ['升级 ¥' + upgradeCost.toLocaleString(), record.owned > 0 && record.level < config.maxLevel, 'upgrade'],
       ['维修', record.condition < 100, 'repair']
     ];
@@ -209,7 +279,171 @@ class DeviceScene {
     }
   }
 
+  confirmPlacement() {
+    if (!this.placementGridCell) return;
+    const state = this.gameState.getState();
+    const config = equipmentCatalog.byType[this.placementType];
+    if (!config) return;
+    const gx = this.placementGridCell.gridX;
+    const gy = this.placementGridCell.gridY;
+    const deskType = this.placementType === 'gaming_pc' || this.placementType === 'premium_pc' ? 'double_gaming_desk' : 'standard_pc_desk';
+    const deskConfig = this.deviceSystem.furnitureByType[deskType];
+    if (!deskConfig || !this.gridMap.isInside(gx, gy, deskConfig.width, deskConfig.height)) {
+      this.toast = '位置无效';
+      this.requestRender();
+      return;
+    }
+    if (!this.deviceSystem.isFurnitureAreaFree(state.furniture, deskType, gx, gy)) {
+      this.toast = '该位置已被占用';
+      this.requestRender();
+      return;
+    }
+    const price = config.purchasePrice;
+    if (state.player.cash < price) {
+      this.toast = '资金不足';
+      this.requestRender();
+      return;
+    }
+    state.player.cash -= price;
+    state.devices = this.deviceSystem.sanitizeDevices(state.devices, state.furniture).devices;
+    state.devices[this.placementType].owned += 1;
+    state.devices[this.placementType].installed += 1;
+    this.deviceSystem.createComputerDeskAt(state, this.placementType, gx, gy);
+    this.toast = '已购买并放置于(' + (gx+1) + ',' + (gy+1) + ')';
+    this.placementMode = false;
+    this.placementType = null;
+    this.placementGridCell = null;
+    this.cachedState = null;
+    this.cachedSummary = null;
+    this.saveManager.save(state);
+    this.requestRender();
+  }
+
+  cancelPlacement() {
+    this.placementMode = false;
+    this.placementType = null;
+    this.placementGridCell = null;
+    this.toast = '已取消放置';
+    this.requestRender();
+  }
+
+  updatePlacementCell(point) {
+    const g = this.gridMap.getGridFromPoint(this.placementMapBounds, point.x, point.y);
+    if (!g) { this.placementGridCell = null; this.placementValid = false; return; }
+    this.placementGridCell = g;
+    const deskType = this.placementType === 'gaming_pc' || this.placementType === 'premium_pc' ? 'double_gaming_desk' : 'standard_pc_desk';
+    const deskConfig = this.deviceSystem.furnitureByType[deskType];
+    const state = this.gameState.getState();
+    if (deskConfig) {
+      this.placementValid = this.gridMap.isInside(g.gridX, g.gridY, deskConfig.width, deskConfig.height) &&
+        this.deviceSystem.isFurnitureAreaFree(state.furniture, deskType, g.gridX, g.gridY);
+    } else {
+      this.placementValid = false;
+    }
+  }
+
+  drawPlacementOverlay(context, full) {
+    const state = this.gameState.getState();
+    const mapW = Math.min(full.width - 40, 480);
+    const mapH = Math.min(full.height - 180, mapW * 0.65);
+    const mapX = full.x + (full.width - mapW) / 2;
+    const mapY = full.y + 65;
+    this.placementMapBounds = { x: mapX, y: mapY, width: mapW, height: mapH };
+
+    context.fillStyle = 'rgba(0,0,0,0.72)';
+    context.fillRect(full.x, full.y, full.width, full.height);
+
+    const config = equipmentCatalog.byType[this.placementType];
+    context.fillStyle = '#f3d47d';
+    context.font = 'bold 14px sans-serif';
+    context.textAlign = 'center';
+    context.fillText('放置' + (config ? config.name : '电脑') + ' - 点击地图选择位置', full.x + full.width / 2, full.y + 38);
+
+    CanvasUtils.fillRoundedRect(context, this.placementMapBounds, 6, '#172a31');
+
+    const inner = this.gridMap.getInnerBounds(this.placementMapBounds);
+    context.save();
+    context.beginPath();
+    context.rect(inner.x, inner.y, inner.width, inner.height);
+    context.clip();
+    context.fillStyle = '#2a1f15';
+    context.fillRect(inner.x, inner.y, inner.width, inner.height);
+
+    // Draw existing furniture as occupied
+    const furniture = Array.isArray(state.furniture) ? state.furniture : [];
+    furniture.forEach(item => {
+      const catConfig = this.deviceSystem.furnitureByType[item.type];
+      if (!catConfig) return;
+      const cellRect = this.gridMap.getCellRect(this.placementMapBounds, item.gridX, item.gridY, catConfig.width, catConfig.height);
+      context.fillStyle = 'rgba(120,90,60,0.45)';
+      context.fillRect(cellRect.x + 1, cellRect.y + 1, cellRect.width - 2, cellRect.height - 2);
+    });
+
+    // Grid lines
+    context.strokeStyle = 'rgba(224,186,117,0.15)';
+    context.lineWidth = 1;
+    for (let x = 0; x <= this.gridMap.columns; x++) {
+      const px = inner.x + x * inner.cell;
+      context.beginPath(); context.moveTo(px, inner.y); context.lineTo(px, inner.y + inner.height); context.stroke();
+    }
+    for (let y = 0; y <= this.gridMap.rows; y++) {
+      const py = inner.y + y * inner.cell;
+      context.beginPath(); context.moveTo(inner.x, py); context.lineTo(inner.x + inner.width, py); context.stroke();
+    }
+
+    // Placement preview
+    if (this.placementGridCell) {
+      const deskType = this.placementType === 'gaming_pc' || this.placementType === 'premium_pc' ? 'double_gaming_desk' : 'standard_pc_desk';
+      const deskConfig = this.deviceSystem.furnitureByType[deskType];
+      if (deskConfig) {
+        const previewRect = this.gridMap.getCellRect(this.placementMapBounds, this.placementGridCell.gridX, this.placementGridCell.gridY, deskConfig.width, deskConfig.height);
+        context.fillStyle = this.placementValid ? 'rgba(105,196,123,0.35)' : 'rgba(221,93,82,0.35)';
+        context.fillRect(previewRect.x + 1, previewRect.y + 1, previewRect.width - 2, previewRect.height - 2);
+        context.strokeStyle = this.placementValid ? '#69c47b' : '#dd5d52';
+        context.lineWidth = 2;
+        context.strokeRect(previewRect.x, previewRect.y, previewRect.width, previewRect.height);
+      }
+    }
+    context.restore();
+
+    CanvasUtils.strokeRoundedRect(context, this.placementMapBounds, 6, '#8d682e', 2);
+
+    // Buttons
+    const btnY = this.placementMapBounds.y + this.placementMapBounds.height + 12;
+    const btnW = 120;
+    const btnH = 42;
+    const centerX = this.placementMapBounds.x + this.placementMapBounds.width / 2;
+
+    const confirmBox = { x: centerX - btnW - 10, y: btnY, width: btnW, height: btnH };
+    const canConfirm = this.placementGridCell && this.placementValid;
+    CanvasUtils.fillRoundedRect(context, confirmBox, 6, canConfirm ? '#2d6a3f' : '#263845');
+    CanvasUtils.strokeRoundedRect(context, confirmBox, 6, canConfirm ? '#69c47b' : '#3a5362', 1);
+    context.fillStyle = canConfirm ? '#f5f0df' : '#728591';
+    context.font = 'bold 12px sans-serif';
+    context.textAlign = 'center';
+    context.fillText('确认放置', confirmBox.x + confirmBox.width / 2, confirmBox.y + confirmBox.height / 2 + 4);
+    if (canConfirm) this.inputManager.register('placement:confirm', confirmBox, () => this.confirmPlacement());
+
+    const cancelBox = { x: centerX + 10, y: btnY, width: btnW, height: btnH };
+    CanvasUtils.fillRoundedRect(context, cancelBox, 6, '#4a2632');
+    CanvasUtils.strokeRoundedRect(context, cancelBox, 6, '#cf6858', 1);
+    context.fillStyle = '#f5f0df';
+    context.font = 'bold 12px sans-serif';
+    context.fillText('取消', cancelBox.x + cancelBox.width / 2, cancelBox.y + cancelBox.height / 2 + 4);
+    this.inputManager.register('placement:cancel', cancelBox, () => this.cancelPlacement());
+
+    context.fillStyle = '#f0c15b';
+    context.font = '10px sans-serif';
+    context.textAlign = 'center';
+    context.fillText(this.toast, centerX, btnY - 10);
+  }
+
   render(context, bounds, state) {
+    this.inputManager.clear();
+    if (this.placementMode) {
+      this.drawPlacementOverlay(context, { x: bounds.x, y: bounds.y, width: bounds.width, height: bounds.height });
+      return;
+    }
     const padding = 7;
     const summaryHeight = 48;
     const summary = this.getSummary(state);
