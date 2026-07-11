@@ -39,8 +39,8 @@ module.exports = [
     ratingBonus: bonus({ equipment: 4 }),
     renderStyle: { body: '#5b3826', accent: '#2d91c7' },
     visual: Object.assign(visual({ body: '#5b3826', accent: '#2d91c7' }), {
-      spriteKey: 'standard_pc_desk',
-      spritePath: 'assets/textures/furniture/standard_pc_desk_01.png',
+      spriteKey: 'pc_color_01',
+      spritePath: 'assets/textures/furniture/pc_color_01.png',
       variants: [
         { spriteKey: 'pc_color_01', spritePath: 'assets/textures/furniture/pc_color_01.png' },
         { spriteKey: 'pc_color_02', spritePath: 'assets/textures/furniture/pc_color_02.png' },
@@ -61,8 +61,8 @@ module.exports = [
     ratingBonus: bonus({ equipment: 7 }),
     renderStyle: { body: '#4b2e22', accent: '#38a7df' },
     visual: Object.assign(visual({ body: '#4b2e22', accent: '#38a7df' }), {
-      spriteKey: 'double_gaming_desk',
-      spritePath: 'assets/textures/furniture/double_gaming_desk_01.png',
+      spriteKey: 'pc_color_01',
+      spritePath: 'assets/textures/furniture/pc_color_01.png',
       variants: [
         { spriteKey: 'pc_color_01', spritePath: 'assets/textures/furniture/pc_color_01.png' },
         { spriteKey: 'pc_color_02', spritePath: 'assets/textures/furniture/pc_color_02.png' },
