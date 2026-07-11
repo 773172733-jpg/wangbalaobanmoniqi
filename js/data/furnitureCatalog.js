@@ -45,7 +45,7 @@ module.exports = [
       variants: [
         { spriteKey: 'pc_color_01', spritePath: 'assets/textures/furniture/pc_color_01.png', scale: 1 },
         { spriteKey: 'pc_color_02', spritePath: 'assets/textures/furniture/pc_color_02.png', scale: 1 },
-        { spriteKey: 'pc_color_03', spritePath: 'assets/textures/furniture/pc_color_03.png', scale: 0.95 }
+        { spriteKey: 'pc_color_03', spritePath: 'assets/textures/furniture/pc_color_03.png', scale: 0.9025 }
       ]
     })
   },
@@ -68,7 +68,7 @@ module.exports = [
       variants: [
         { spriteKey: 'pc_color_01', spritePath: 'assets/textures/furniture/pc_color_01.png', scale: 1 },
         { spriteKey: 'pc_color_02', spritePath: 'assets/textures/furniture/pc_color_02.png', scale: 1 },
-        { spriteKey: 'pc_color_03', spritePath: 'assets/textures/furniture/pc_color_03.png', scale: 0.95 }
+        { spriteKey: 'pc_color_03', spritePath: 'assets/textures/furniture/pc_color_03.png', scale: 0.9025 }
       ]
     })
   },
