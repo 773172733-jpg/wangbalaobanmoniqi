@@ -1,4 +1,4 @@
-﻿'use strict';
+'use strict';
 
 const DecorationRenderer = require('../map/DecorationRenderer');
 const GridMap = require('../map/GridMap');
@@ -20,7 +20,7 @@ function distance(a, b) { const dx = a.x - b.x; const dy = a.y - b.y; return Mat
 class OverviewScene {
   constructor(dependencies) {
     const deps = dependencies || {};
-    this.title = '经营概览';
+    this.title = '��Ӫ����';
     this.assetManager = deps.assetManager || deps;
     this.inputManager = deps.inputManager || null;
     this.requestRender = deps.requestRender || function () {};
@@ -59,6 +59,10 @@ class OverviewScene {
   enter() {
     this.gesture = null;
     if (this.inputManager) this.inputManager.setGestureHandler(this.gestureHandler);
+    const floorKey = 'floor_concrete_old';
+    if (this.assetManager && !this.assetManager.hasImage(floorKey)) {
+      this.assetManager.loadImage(floorKey, 'assets/textures/floor/floor_concrete_old_01.png', () => this.requestRender());
+    }
     if (this.gameState && this.gameState.eventBus) {
       if (this._unsubMapExpanded) this._unsubMapExpanded();
       this._unsubMapExpanded = this.gameState.eventBus.on('mapExpanded', () => {
@@ -135,10 +139,10 @@ class OverviewScene {
     context.fillStyle = '#f5f0df';
     context.font = 'bold 13px sans-serif';
     context.textAlign = 'left';
-    context.fillText('老板视角', x + 9, y + 16);
+    context.fillText('�ϰ��ӽ�', x + 9, y + 16);
     context.fillStyle = '#718897';
     context.font = '9px sans-serif';
-    context.fillText('只读网吧预览', x + 78, y + 15);
+    context.fillText('ֻ������Ԥ��', x + 78, y + 15);
   }
 
   drawDailyPanel(context, bounds, state) {
@@ -148,12 +152,12 @@ class OverviewScene {
     CanvasUtils.fillRoundedRect(context, bounds, 5, '#0d2232');
     CanvasUtils.strokeRoundedRect(context, bounds, 5, '#344a57', 1);
     context.fillStyle = '#f0c15b'; context.font = 'bold 12px sans-serif'; context.textAlign = 'left';
-    context.fillText('今日数据', bounds.x + 10, bounds.y + 18);
+    context.fillText('��������', bounds.x + 10, bounds.y + 18);
     const averageSatisfaction = today.satisfactionWeight ? Math.round(today.satisfactionTotal / today.satisfactionWeight) : cafe.satisfaction;
     const rows = [
-      ['上机收入', '¥' + today.seatIncome.toLocaleString(), '#f2c45e'], ['商品收入', '¥' + today.productIncome.toLocaleString(), '#65bfa0'],
-      ['潜在顾客', today.potentialCustomers + '人', '#dfe7e9'], ['实际到店', today.admittedCustomers + '人', '#65bfa0'],
-      ['流失顾客', today.lostCustomers + '人', '#e78555'], ['平均满意', averageSatisfaction + '分', '#f2c45e']
+      ['�ϻ�����', '��' + today.seatIncome.toLocaleString(), '#f2c45e'], ['��Ʒ����', '��' + today.productIncome.toLocaleString(), '#65bfa0'],
+      ['Ǳ�ڹ˿�', today.potentialCustomers + '��', '#dfe7e9'], ['ʵ�ʵ���', today.admittedCustomers + '��', '#65bfa0'],
+      ['��ʧ�˿�', today.lostCustomers + '��', '#e78555'], ['ƽ������', averageSatisfaction + '��', '#f2c45e']
     ];
     const chartHeight = 48;
     const listTop = bounds.y + 26;
@@ -164,7 +168,7 @@ class OverviewScene {
       context.fillStyle = row[2]; context.font = 'bold 9px sans-serif'; context.textAlign = 'right'; context.fillText(row[1], bounds.x + bounds.width - 10, y);
     });
     const chartY = bounds.y + bounds.height - chartHeight;
-    context.fillStyle = '#718897'; context.font = '8px sans-serif'; context.textAlign = 'left'; context.fillText('最近7日真实营收', bounds.x + 10, chartY + 10);
+    context.fillStyle = '#718897'; context.font = '8px sans-serif'; context.textAlign = 'left'; context.fillText('���7����ʵӪ��', bounds.x + 10, chartY + 10);
     const history = business.dailyHistory.slice(-7); const revenues = history.map((item) => item.totalRevenue || 0); const maxRevenue = Math.max(1, ...revenues);
     const values = Array(Math.max(0, 7 - revenues.length)).fill(0).concat(revenues.map((value) => value / maxRevenue));
     context.strokeStyle = '#e9c34f'; context.lineWidth = 2; context.beginPath();
@@ -180,10 +184,10 @@ class OverviewScene {
     const cafe = state.cafe;
     const business = state.businessSimulation; const today = business.today; const metrics = this.getOperatingMetrics(state); const current = Number(cafe.currentCustomers) || 0; const capacity = metrics.equipment.installedComputerCount; const powerShort = metrics.equipment.powerCapacity < metrics.equipment.currentPowerDemand + current * 0.65; const networkSeats = Math.floor(metrics.equipment.networkCapacity);
     const cards = [
-      ['正在上机', current + ' / ' + capacity, '#4e8fc1'], ['上座率', cafe.occupancyRate + '%', '#4e8fc1'],
-      ['今日顾客', today.admittedCustomers + '人', '#6cad78'], ['今日流失', today.lostCustomers + '人', '#dd8452'],
-      ['今日收入', '¥' + cafe.todayIncome.toLocaleString(), '#d9a941'], ['网络状态', networkSeats >= current ? '正常' : '拥堵', networkSeats >= current ? '#69aa75' : '#cf7654'],
-      ['供电状态', powerShort ? '不足' : '正常', powerShort ? '#cf7654' : '#69aa75'], ['服务压力', current <= metrics.employee.serviceCapacity ? '正常' : '过载', current <= metrics.employee.serviceCapacity ? '#69aa75' : '#cf7654']
+      ['�����ϻ�', current + ' / ' + capacity, '#4e8fc1'], ['������', cafe.occupancyRate + '%', '#4e8fc1'],
+      ['���չ˿�', today.admittedCustomers + '��', '#6cad78'], ['������ʧ', today.lostCustomers + '��', '#dd8452'],
+      ['��������', '��' + cafe.todayIncome.toLocaleString(), '#d9a941'], ['����״̬', networkSeats >= current ? '����' : 'ӵ��', networkSeats >= current ? '#69aa75' : '#cf7654'],
+      ['����״̬', powerShort ? '����' : '����', powerShort ? '#cf7654' : '#69aa75'], ['����ѹ��', current <= metrics.employee.serviceCapacity ? '����' : '����', current <= metrics.employee.serviceCapacity ? '#69aa75' : '#cf7654']
     ];
     const gap = 4;
     const cardWidth = (bounds.width - gap * (cards.length - 1)) / cards.length;
@@ -199,7 +203,7 @@ class OverviewScene {
   drawResetButton(context) {
     const visual = rect(this.resetHitBox.x + 4, this.resetHitBox.y + 4, this.resetHitBox.width - 8, this.resetHitBox.height - 8);
     CanvasUtils.fillRoundedRect(context, visual, 4, 'rgba(10,29,43,0.92)'); CanvasUtils.strokeRoundedRect(context, visual, 4, '#c99b3f', 1);
-    context.fillStyle = '#f3d47d'; context.font = 'bold 9px sans-serif'; context.textAlign = 'center'; context.fillText('复位', visual.x + visual.width / 2, visual.y + visual.height / 2 + 3);
+    context.fillStyle = '#f3d47d'; context.font = 'bold 9px sans-serif'; context.textAlign = 'center'; context.fillText('��λ', visual.x + visual.width / 2, visual.y + visual.height / 2 + 3);
     this.inputManager.register('overview:reset', this.resetHitBox, () => this.resetView());
   }
 
@@ -229,11 +233,11 @@ class OverviewScene {
     this.resetHitBox = rect(this.mapBounds.x + this.mapBounds.width - 44, this.mapBounds.y + 4, 40, 40);
     this.drawResetButton(context);
     const usage = state.cafe.currentCustomers || 0;
-    if (usage > 0) { const status = rect(this.mapBounds.x + 8, this.mapBounds.y + 7, 88, 20); CanvasUtils.fillRoundedRect(context, status, 4, 'rgba(8,35,45,0.9)'); context.fillStyle = '#65d1ae'; context.font = 'bold 9px sans-serif'; context.textAlign = 'center'; context.fillText('● 使用中 ' + usage + ' 台', status.x + status.width / 2, status.y + 14); }
+    if (usage > 0) { const status = rect(this.mapBounds.x + 8, this.mapBounds.y + 7, 88, 20); CanvasUtils.fillRoundedRect(context, status, 4, 'rgba(8,35,45,0.9)'); context.fillStyle = '#65d1ae'; context.font = 'bold 9px sans-serif'; context.textAlign = 'center'; context.fillText('�� ʹ���� ' + usage + ' ̨', status.x + status.width / 2, status.y + 14); }
     if (this.showPanHint) {
       const hint = rect(this.mapBounds.x + 10, this.mapBounds.y + this.mapBounds.height - 28, 132, 21);
       CanvasUtils.fillRoundedRect(context, hint, 4, 'rgba(6,20,30,0.78)');
-      context.fillStyle = '#d5dfdf'; context.font = '9px sans-serif'; context.textAlign = 'center'; context.fillText('拖动查看网吧其他区域', hint.x + hint.width / 2, hint.y + 14);
+      context.fillStyle = '#d5dfdf'; context.font = '9px sans-serif'; context.textAlign = 'center'; context.fillText('�϶��鿴������������', hint.x + hint.width / 2, hint.y + 14);
     }
     this.drawDailyPanel(context, rect(bounds.x + padding * 2 + mapWidth, bodyY, sideWidth, bodyHeight), state);
     this.drawMetricCards(context, rect(bounds.x + padding, bodyY + bodyHeight + padding, bounds.width - padding * 2, metricsHeight), state, summary);
