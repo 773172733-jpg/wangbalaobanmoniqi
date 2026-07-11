@@ -1,4 +1,4 @@
-﻿﻿'use strict';
+﻿'use strict';
 
 const CanvasUtils = require('../ui/CanvasUtils');
 const Camera2D = require('../map/Camera2D');
@@ -414,7 +414,14 @@ class DecorationEditorScene {
     const cardH = 62;
     const visibleH = box.y + box.height - listTop - 8;
     if (this.category === '扩建') {
-      this.drawExpansionInDrawer(context, rect(box.x + 8, listTop, box.width - 16, visibleH));
+    // Scrollbar
+    if (contentH > visibleH) {
+      const sbW = 4; const sbX = box.x + box.width - 10; const sbH = Math.max(20, visibleH * visibleH / contentH);
+      const sbY = listTop + this.catalogScroll * visibleH / contentH;
+      CanvasUtils.fillRoundedRect(context, { x: sbX, y: sbY, width: sbW, height: sbH }, 2, '#5a7d94');
+    }
+      context.restore();
+      return;
       context.restore();
       return;
     }
@@ -457,12 +464,18 @@ class DecorationEditorScene {
       CanvasUtils.fillRoundedRect(context, card, 5, '#132c3e'); CanvasUtils.strokeRoundedRect(context, card, 5, '#365265', 1);
       context.fillStyle = (item.visual && item.visual.fallbackStyle.body) || item.renderStyle.body; context.fillRect(card.x + 8, card.y + 14, 36, 28);
       context.fillStyle = '#f4f0df'; context.font = 'bold 11px sans-serif'; context.textAlign = 'left'; context.fillText(item.name, card.x + 52, card.y + 18);
-      context.fillStyle = '#90a6b3'; context.font = '10px sans-serif'; context.fillText('¥' + item.price + '  ·  ' + item.width + '×' + item.height + '格', card.x + 52, card.y + 36);
+      context.fillStyle = '#90a6b3'; context.font = '10px sans-serif'; context.fillText('¥' + item.price + '  \xB7  ' + item.width + '\xD7' + item.height + '\u683C', card.x + 52, card.y + 36);
       const bonus = Object.keys(item.ratingBonus).find(function(key) { return item.ratingBonus[key] > 0; });
-      context.fillStyle = '#d8b65b'; context.fillText(bonus ? bonus + ' +' + item.ratingBonus[bonus] : '装饰家具', card.x + 52, card.y + 52);
+      context.fillStyle = '#d8b65b'; context.fillText(bonus ? bonus + ' +' + item.ratingBonus[bonus] : '\u88C5\u9970\u5BB6\u5177', card.x + 52, card.y + 52);
       this.inputManager.register('drawer:item:' + item.type, card, function() { this.draft.selectCatalog(item.type); this.drawerOpen = false; this.detailOpen = true; this.requestRender(); }.bind(this));
     }.bind(this));
     context.restore();
+    // Scrollbar
+    if (contentH > visibleH) {
+      const sbW = 4; const sbX = box.x + box.width - 10; const sbH = Math.max(20, visibleH * visibleH / contentH);
+      const sbY = listTop + this.catalogScroll * visibleH / contentH;
+      CanvasUtils.fillRoundedRect(context, { x: sbX, y: sbY, width: sbW, height: sbH }, 2, '#5a7d94');
+    }
   }
   drawDetails(context, view) {
     if (!this.detailOpen) return;

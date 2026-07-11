@@ -15,14 +15,18 @@ class FinanceScene {
     this.system = new FinanceSystem(deps.gameState, deps.saveManager); this.chart = new ChartRenderer(); this.tab = 'overview'; this.metric = 'net'; this.direction = null; this.category = null; this.selectedDay = null; this.selectedTransaction = null; this.selectedPie = null; this.viewMonth = null; this.cacheKey = ''; this.summary = null;
   }
 
-  enter() { const time = this.system.getRoot().time; if (!this.viewMonth) this.viewMonth = { year: time.year, month: time.month }; this.invalidate(); }
+  enter() { const time = this.system.getRoot().time; if (!this.viewMonth) this.viewMonth = { year: time.year, month: time.month }; this.invalidate(); if (this.inputManager) this.inputManager.setGestureHandler(this.gestureHandler); }
+  leave() { if (this.inputManager) this.inputManager.clearGestureHandler(this.gestureHandler); }
+  onTouchStart(event) { if (this.tab !== 'ledger') return; const t = (event.touches || [])[0]; if (!t) return; this._gestureStartY = t.clientY; this._gestureStartLedgerScroll = this.ledgerScroll; this._isDragging = false; }
+  onTouchMove(event) { if (this.tab !== 'ledger') return; const t = (event.touches || [])[0]; if (!t) return; if (this._gestureStartY === 0) return; const dy = this._gestureStartY - t.clientY; if (Math.abs(dy) > 5) this._isDragging = true; if (this._isDragging) { this.ledgerScroll = Math.max(0, this._gestureStartLedgerScroll + dy); this.requestRender(); } }
+  onTouchEnd() { var wasDragging = this._isDragging; this._gestureStartY = 0; this._isDragging = false; return wasDragging; }
   invalidate() { this.cacheKey = ''; }
   getSummary(state) { const key = this.viewMonth.year + '-' + this.viewMonth.month + '-' + state.finance.transactions.length; if (key !== this.cacheKey) { this.summary = this.system.getMonthlySummary(this.viewMonth.year, this.viewMonth.month); this.cacheKey = key; } return this.summary; }
   money(value) { return FinanceSystem.formatMoney(value); }
 
   button(context, id, box, label, enabled, action, selected) { CanvasUtils.fillRoundedRect(context, box, 4, !enabled ? '#263845' : selected ? '#a97022' : '#153247'); CanvasUtils.strokeRoundedRect(context, box, 4, enabled && selected ? '#efc45c' : '#3a5362', 1); context.fillStyle = enabled ? '#f5f0df' : '#728591'; context.font = 'bold 9px sans-serif'; context.textAlign = 'center'; context.fillText(label, box.x + box.width / 2, box.y + box.height / 2 + 3); if (enabled) this.inputManager.register(id, box, action); }
 
-  drawTabs(context, box) { const tabs = [['overview', '财务总览'], ['report', '月度报表'], ['ledger', '收支流水']]; tabs.forEach((tab, index) => this.button(context, 'finance:tab:' + tab[0], rect(box.x + index * 104, box.y, 98, box.height), tab[1], true, () => { this.tab = tab[0]; this.selectedTransaction = null; this.requestRender(); }, this.tab === tab[0])); }
+  drawTabs(context, box) { const tabs = [['overview', '财务总览'], ['report', '月度报表'], ['ledger', '收支流水']]; tabs.forEach((tab, index) => this.button(context, 'finance:tab:' + tab[0], rect(box.x + index * 104, box.y, 98, box.height), tab[1], true, () => { this.tab = tab[0]; this.selectedTransaction = null; this.ledgerScroll = 0; this.requestRender(); }, this.tab === tab[0])); }
 
   drawCards(context, box, state, summary) {
     const values = [['当前现金', this.system.getCash(state)], ['营业收入', summary.operatingIncome], ['经营支出', summary.operatingExpense], ['投资支出', summary.capitalExpense], ['经营利润', summary.operatingProfit], ['现金净流量', summary.netCashFlow]]; const gap = 5; const width = (box.width - gap * 5) / 6;

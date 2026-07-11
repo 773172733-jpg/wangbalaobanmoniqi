@@ -20,6 +20,7 @@ class EmployeeScene {
     this.selectedId = null;
     this.toast = '';
     this.scrollOffset = 0;
+    this.marketScroll = 0;
     this._gestureStartY = 0;
     this._gestureStartOffset = 0;
     this.gestureHandler = {
@@ -34,6 +35,8 @@ this.system.ensureMarket(false);
     const employees = this.system.employees();
     if (!this.selectedId && employees.length) this.selectedId = employees[0].id;
     this.scrollOffset = 0;
+    this.marketScroll = 0;
+    this.marketScroll = 0;
     this._isDragging = false;
     if (this.inputManager) this.inputManager.setGestureHandler(this.gestureHandler);
     const avatarKeys = ['cleaner', 'girl', 'waiter', 'manager', 'cashier', 'youth'];
@@ -42,6 +45,13 @@ this.system.ensureMarket(false);
         this.assetManager.loadImage(k, 'assets/textures/avatar/' + k + '.png', () => this.requestRender());
       }
     });
+    context.restore();
+    // Scrollbar
+    if (totalContentH > viewH) {
+      const sbW = 4; const sbX = box.x + box.width - 10; const sbH = Math.max(20, viewH * viewH / totalContentH);
+      const sbY = box.y + (this.marketScroll || 0) * viewH / totalContentH;
+      CanvasUtils.fillRoundedRect(context, { x: sbX, y: sbY, width: sbW, height: sbH }, 2, '#5a7d94');
+    }
   }
 
   leave() {
@@ -68,18 +78,18 @@ this.system.ensureMarket(false);
 
 
   onTouchStart(event) {
+    if (this.tab === 'market') { const touches = event.touches || []; if (touches.length) { this._gestureStartY = touches[0].clientY; this._gestureStartOffset = this.marketScroll || 0; this._isDragging = false; } return; }
+    if (this.tab === 'market') { const touches = event.touches || []; if (!touches.length) return; const point = { x: touches[0].clientX, y: touches[0].clientY }; if (this._gestureStartY === 0) return; const dy = this._gestureStartY - point.y; if (Math.abs(dy) > 5) this._isDragging = true; if (this._isDragging) { this.marketScroll = Math.max(0, this._gestureStartOffset + dy); this.requestRender(); } return; }
     if (this.tab !== 'mine') return;
-    const touches = event.touches || [];
-    if (!touches.length) return;
     this._gestureStartY = touches[0].clientY;
     this._gestureStartOffset = this.scrollOffset || 0;
     this._isDragging = false;
   }
 
   onTouchMove(event) {
+    if (this.tab === 'market') { const touches = event.touches || []; if (touches.length) { this._gestureStartY = touches[0].clientY; this._gestureStartOffset = this.marketScroll || 0; this._isDragging = false; } return; }
+    if (this.tab === 'market') { const touches = event.touches || []; if (!touches.length) return; const point = { x: touches[0].clientX, y: touches[0].clientY }; if (this._gestureStartY === 0) return; const dy = this._gestureStartY - point.y; if (Math.abs(dy) > 5) this._isDragging = true; if (this._isDragging) { this.marketScroll = Math.max(0, this._gestureStartOffset + dy); this.requestRender(); } return; }
     if (this.tab !== 'mine') return;
-    const touches = event.touches || [];
-    if (!touches.length) return;
     const point = { x: touches[0].clientX, y: touches[0].clientY };
     if (this._gestureStartY === 0) return;
     const dy = this._gestureStartY - point.y;
@@ -107,6 +117,13 @@ this.system.ensureMarket(false);
       context.fillStyle = '#8198a7'; context.font = '9px sans-serif'; context.textAlign = 'left'; context.fillText(item[0], x, box.y + 16);
       context.fillStyle = index === 3 ? '#efc35d' : '#f3efe1'; context.font = 'bold 13px sans-serif'; context.fillText(String(item[1]), x, box.y + 36);
     });
+    context.restore();
+    // Scrollbar
+    if (totalContentH > viewH) {
+      const sbW = 4; const sbX = box.x + box.width - 10; const sbH = Math.max(20, viewH * viewH / totalContentH);
+      const sbY = box.y + (this.marketScroll || 0) * viewH / totalContentH;
+      CanvasUtils.fillRoundedRect(context, { x: sbX, y: sbY, width: sbW, height: sbH }, 2, '#5a7d94');
+    }
   }
 
   drawTabs(context, box) {
@@ -156,6 +173,13 @@ if (avImg && avImg.width) {
         if (cardY + cardH < listBox.y || cardY > listBox.y + listBox.height) return;
         this.drawEmployeeCard(context, rect(listBox.x + innerPad, cardY, listBox.width - innerPad * 2, cardH), employee);
       });
+    context.restore();
+    // Scrollbar
+    if (totalContentH > viewH) {
+      const sbW = 4; const sbX = box.x + box.width - 10; const sbH = Math.max(20, viewH * viewH / totalContentH);
+      const sbY = box.y + (this.marketScroll || 0) * viewH / totalContentH;
+      CanvasUtils.fillRoundedRect(context, { x: sbX, y: sbY, width: sbW, height: sbH }, 2, '#5a7d94');
+    }
       context.restore();
       if (maxScroll > 0) {
         const trackW = 6; const trackX = listBox.x + listBox.width - trackW - 8;
@@ -221,6 +245,13 @@ if (avImg && avImg.width) {
       context.fillStyle = '#e9ba52'; context.font = '9px sans-serif'; context.textAlign = 'left'; context.fillText('工资 ¥' + candidate.salary + '/月', card.x + 9, card.y + 74);
       context.fillStyle = '#91a6b2'; context.font = '9px sans-serif'; context.textAlign = 'left'; context.fillText(candidate.traits.join(' · '), card.x + 9, card.y + 91);
     });
+    context.restore();
+    // Scrollbar
+    if (totalContentH > viewH) {
+      const sbW = 4; const sbX = box.x + box.width - 10; const sbH = Math.max(20, viewH * viewH / totalContentH);
+      const sbY = box.y + (this.marketScroll || 0) * viewH / totalContentH;
+      CanvasUtils.fillRoundedRect(context, { x: sbX, y: sbY, width: sbW, height: sbH }, 2, '#5a7d94');
+    }
   }
 
   render(context, bounds, state) {
