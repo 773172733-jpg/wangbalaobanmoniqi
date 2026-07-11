@@ -9,6 +9,7 @@ class DecorationRenderer {
     this.assetManager = assetManager || null;
     this.gridMap = gridMap || new GridMap();
     this.catalogByType = RatingSystem.catalogByType;
+    this._wallConfigs = null;
   }
 
   drawComputer(context, rect, config, count) {
@@ -187,6 +188,52 @@ class DecorationRenderer {
   }
 
 
+
+  getWallConfigs() {
+    if (this._wallConfigs) return this._wallConfigs;
+    this._wallConfigs = {
+      wall_horizontal: { spriteKey: "wall_horizontal", spritePath: "assets/textures/wall/wall_horizontal_01.png", renderScale: 1 },
+      wall_vertical: { spriteKey: "wall_vertical", spritePath: "assets/textures/wall/wall_vertical_01.png", renderScale: 1 },
+      wall_corner: { spriteKey: "wall_corner", spritePath: "assets/textures/wall/wall_corner_L_01.png", renderScale: 1 }
+    };
+    return this._wallConfigs;
+  }
+
+  drawWalls(context, camera, walls, cellSize) {
+    if (!walls || !walls.length) return;
+    var configs = this.getWallConfigs();
+    var self = this;
+    walls.forEach(function(wall) {
+      var cfg = configs[wall.type];
+      if (!cfg) return;
+      var image = self.assetManager ? self.assetManager.getImage(cfg.spriteKey) : null;
+      var cell = cellSize || 40;
+      var p = camera.worldToScreen(wall.gridX * cell, wall.gridY * cell);
+      var scale = cfg.renderScale || 1;
+      var boxW = Math.round(cell * camera.zoom * scale);
+      var boxH = Math.round(cell * camera.zoom * scale);
+      var box = { x: Math.round(p.x), y: Math.round(p.y), width: boxW, height: boxH };
+      if (image && image.width && image.height) {
+        context.save();
+        context.imageSmoothingEnabled = false;
+        var cx = box.x + box.width / 2;
+        var cy = box.y + box.height / 2;
+        context.translate(cx, cy);
+        context.rotate((wall.rotation || 0) * Math.PI / 180);
+        var imgRatio = image.width / image.height;
+        var boxRatio = box.width / box.height;
+        var dw, dh;
+        if (imgRatio > boxRatio) { dw = box.width; dh = Math.round(box.width / imgRatio); }
+        else { dh = box.height; dw = Math.round(box.height * imgRatio); }
+        context.drawImage(image, Math.round(-dw / 2), Math.round(-dh / 2), dw, dh);
+        context.restore();
+      } else {
+        context.fillStyle = wall.type === "wall_corner" ? "#5c4a3a" : "#4a3c2f";
+        context.fillRect(box.x, box.y, box.width, box.height);
+      }
+    });
+  }
+
   drawViewport(context, camera, furniture, options) {
     const settings = Object.assign({ cellSize: 60, showGrid: true, selectedId: null, preview: null, previewValid: true }, options || {});
     const view = camera.viewportRect;
@@ -216,6 +263,7 @@ class DecorationRenderer {
       context.fillStyle = '#76543b';
       context.fillRect(sx, sy, Math.round(worldW), Math.round(worldH));
     }
+    if (options.walls) this.drawWalls(context, camera, options.walls, cell);
     if (settings.showGrid) {
       context.strokeStyle = 'rgba(224,186,117,0.18)';
       context.lineWidth = 1;

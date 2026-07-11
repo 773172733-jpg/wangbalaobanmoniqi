@@ -245,7 +245,7 @@ class OverviewScene {
     this.drawSectionTitle(context, bounds.x + padding, bounds.y + 1);
     CanvasUtils.fillRoundedRect(context, this.mapBounds, 5, '#172a31'); CanvasUtils.strokeRoundedRect(context, this.mapBounds, 5, '#8d682e', 1);
     context.save(); context.imageSmoothingEnabled = false;
-    this.decorationRenderer.drawViewport(context, this.camera, state.furniture, { cellSize: this.cellSize, showGrid: false });
+    this.decorationRenderer.drawViewport(context, this.camera, state.furniture, { cellSize: this.cellSize, showGrid: false, walls: this.worldGrid.getWalls() });
     context.restore();
     CanvasUtils.strokeRoundedRect(context, this.mapBounds, 5, '#8d682e', 1);
     this.resetHitBox = rect(this.mapBounds.x + this.mapBounds.width - 44, this.mapBounds.y + 4, 40, 40);

@@ -78,6 +78,13 @@ class DecorationEditorScene {
         this.assetManager.loadImage(key, 'assets/textures/furniture/' + key + '.png', function() { this.requestRender(); }.bind(this));
       }
     }.bind(this));
+    var wallKeys = ['wall_horizontal', 'wall_vertical', 'wall_corner'];
+    var wallPaths = { wall_horizontal: 'assets/textures/wall/wall_horizontal_01.png', wall_vertical: 'assets/textures/wall/wall_vertical_01.png', wall_corner: 'assets/textures/wall/wall_corner_L_01.png' };
+    wallKeys.forEach(function(key) {
+      if (!this.assetManager.hasImage(key)) {
+        this.assetManager.loadImage(key, wallPaths[key], function() { this.requestRender(); }.bind(this));
+      }
+    }.bind(this));
     catalog.forEach((item) => {
       const visual = item.visual || {};
       if (visual.spriteKey && visual.spritePath && !this.assetManager.hasImage(visual.spriteKey)) {
@@ -579,7 +586,7 @@ class DecorationEditorScene {
     this.inputManager.clear();
     context.clearRect(0, 0, viewport.width, viewport.height);
     context.fillStyle = '#071522'; context.fillRect(0, 0, viewport.width, viewport.height);
-    this.renderer.drawViewport(context, this.camera, this.draft.draftFurniture, { cellSize: this.cellSize, showGrid: this.showGrid, selectedId: this.draft.selectedFurnitureId, preview: this.preview(), previewValid: this.previewValidation(this.preview()).ok });
+    this.renderer.drawViewport(context, this.camera, this.draft.draftFurniture, { cellSize: this.cellSize, showGrid: this.showGrid, selectedId: this.draft.selectedFurnitureId, preview: this.preview(), previewValid: this.previewValidation(this.preview()).ok, walls: this.worldGrid.getWalls() });
     this.inputManager.register('editor:map', this.mapBounds, (point) => this.mapTap(point));
     this.drawTop(context, rect(safe.x, safe.y, safe.width, topH));
     this.drawToolbar(context, rect(safe.x, safe.y + safe.height - bottomH, safe.width, bottomH));
