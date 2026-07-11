@@ -8,8 +8,7 @@ class TopBar {
     const items = [
       ['网吧等级', 'Lv.' + state.player.level],
       ['现金', '¥' + state.player.cash.toLocaleString() + (state.player.cash < 0 ? ' 赤字' : '')],
-      ['今日收入', '¥' + cafe.todayIncome.toLocaleString()],
-      ['今日客流', String(cafe.customerCount)],
+      ['今日收入', '\¥' + cafe.todayIncome.toLocaleString()],
       ['满意度', cafe.satisfaction + '%'],
       ['当前日期', dateText]
     ];
@@ -32,7 +31,7 @@ class TopBar {
       context.textAlign = 'center';
       context.fillText(item[0], centerX, bounds.y + bounds.height * 0.36);
       context.fillStyle = index === 1 || index === 2 ? '#f2c45e' : '#f4f0df';
-      context.font = (index === 5 ? '' : 'bold ') + (compact ? '11px' : '15px') + ' sans-serif';
+      context.font = (index === 4 ? '' : 'bold ') + (compact ? '11px' : '15px') + ' sans-serif';
       context.fillText(item[1], centerX, bounds.y + bounds.height * 0.7);
     });
     CanvasUtils.strokeRoundedRect(context, bounds, 0, '#1c3547', 1);
