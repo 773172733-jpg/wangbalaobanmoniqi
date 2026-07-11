@@ -1,4 +1,4 @@
-﻿'use strict';
+﻿﻿'use strict';
 
 const UIManager = require('../ui/UIManager');
 const TopBar = require('../ui/TopBar');
@@ -19,15 +19,15 @@ class MainScene {
     this.topBar = new TopBar();
     this.tabs = [
       { id: 'overview', label: '概览' },
-      { id: 'decoration', label: '装修' },
-      { id: 'device', label: '设备' },
+      { id: 'decoration', label: '购买' },
+      { id: 'device', label: '基础' },
       { id: 'employee', label: '员工' },
       { id: 'marketing', label: '营销' },
       { id: 'finance', label: '财务' }
     ];
     this.bottomTabBar = new BottomTabBar(this.tabs);
     this.versionDisplay = new VersionDisplay();
-    const sceneDependencies = Object.assign({}, dependencies, { requestRender: () => this.render() });
+    const sceneDependencies = Object.assign({}, dependencies, { requestRender: () => this.render(), onOpenDecorationEditor: () => { if (this.onOpenDecorationEditor) this.onOpenDecorationEditor(); } });
     this.scenes = {
       overview: new OverviewScene(sceneDependencies),
       device: new DeviceScene(sceneDependencies),
