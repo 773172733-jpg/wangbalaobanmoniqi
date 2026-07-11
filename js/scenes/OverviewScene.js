@@ -31,6 +31,7 @@ class OverviewScene {
     this.decorationRenderer = new DecorationRenderer(this.assetManager, this.gridMap);
     this.deviceSystem = new DeviceSystem();
     this.operatingMetricsSystem = new OperatingMetricsSystem();
+    this.gameState = deps.gameState || null;
     const enableDebug = operatingConfig.DEBUG_BUSINESS_SIMULATION;
     this.debugPanel = enableDebug && deps.businessSimulation ? new BusinessDebugPanel(deps.businessSimulation, this.inputManager, this.requestRender) : null;
     this.camera = new Camera2D({
