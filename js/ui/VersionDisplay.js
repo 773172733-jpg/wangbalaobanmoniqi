@@ -4,7 +4,7 @@ const { GAME_VERSION } = require('../data/version');
 
 class VersionDisplay {
   draw(context, viewport) {
-    const text = 'v' + GAME_VERSION;
+    const text = 'V ' + GAME_VERSION;
     context.save();
     context.globalAlpha = 0.35;
     context.fillStyle = '#aabbcc';
