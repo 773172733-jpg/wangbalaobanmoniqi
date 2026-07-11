@@ -231,12 +231,20 @@ class DecorationRenderer {
     const drawItem = (item, alpha, selected, valid) => {
       const config = this.catalogByType[item.type];
       if (!config) return;
-      const renderConfig = Object.assign({}, config, { renderStyle: (config.visual && config.visual.fallbackStyle) || config.renderStyle });
+      // 支持贴图变体（电脑颜色轮流）
+      let effectiveConfig = config;
+      if (item.textureVariant != null && config.visual && config.visual.variants) {
+        const variant = config.visual.variants[item.textureVariant];
+        if (variant) {
+          effectiveConfig = Object.assign({}, config, { visual: Object.assign({}, config.visual, { spriteKey: variant.spriteKey, spritePath: variant.spritePath }) });
+        }
+      }
+      const renderConfig = Object.assign({}, effectiveConfig, { renderStyle: (effectiveConfig.visual && effectiveConfig.visual.fallbackStyle) || effectiveConfig.renderStyle });
       const size = this.gridMap.getRotatedSize(config, item.rotation || 0);
       const p = camera.worldToScreen(item.gridX * cell, item.gridY * cell);
       const box = { x: Math.round(p.x + 3), y: Math.round(p.y + 3), width: Math.round(size.width * cell * camera.zoom - 6), height: Math.round(size.height * cell * camera.zoom - 6) };
       context.save(); context.globalAlpha = alpha || 1;
-      if (!this.drawSprite(context, box, config, item.rotation)) this.drawFurnitureShape(context, box, renderConfig);
+      if (!this.drawSprite(context, box, effectiveConfig, item.rotation)) this.drawFurnitureShape(context, box, renderConfig);
       context.restore();
       if (selected || valid != null) {
         context.strokeStyle = valid == null ? '#f0c15b' : (valid ? '#69c47b' : '#dd5d52');
