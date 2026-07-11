@@ -233,14 +233,9 @@ class DecorationRenderer {
       if (!config) return;
       // 支持贴图变体（电脑颜色轮流）
       let effectiveConfig = config;
-      if (item.textureVariant != null && config.visual && config.visual.variants) {
-        const variant = config.visual.variants[item.textureVariant];
-        if (variant) {
-          console.log("[OV] tv=" + item.textureVariant + " key=" + variant.spriteKey);
-          effectiveConfig = Object.assign({}, config, { visual: Object.assign({}, config.visual, { spriteKey: variant.spriteKey, spritePath: variant.spritePath }) });
-        }
-      } else if (item.type && item.type.indexOf("desk") >= 0) {
-        console.log("[OV] desk NO variant: " + item.type + " tv=" + item.textureVariant);
+      if (item.type && item.type.indexOf("desk") >= 0 && config.visual && config.visual.variants && config.visual.variants.length >= 2) {
+        console.log("[OV FORCE] forcing pc_color_02 for " + item.type);
+        effectiveConfig = Object.assign({}, config, { visual: Object.assign({}, config.visual, { spriteKey: "pc_color_02", spritePath: "assets/textures/furniture/pc_color_02.png" }) });
       }
       const renderConfig = Object.assign({}, effectiveConfig, { renderStyle: (effectiveConfig.visual && effectiveConfig.visual.fallbackStyle) || effectiveConfig.renderStyle });
       const size = this.gridMap.getRotatedSize(config, item.rotation || 0);
