@@ -224,6 +224,7 @@ class DecorationEditorScene {
         const state = this.gameState.getState();
         if (state.nextComputerColor === undefined) state.nextComputerColor = 0;
         created.textureVariant = state.nextComputerColor % 3;
+        console.log('[PC COLOR] assigned variant ' + created.textureVariant + ' (color #' + (created.textureVariant + 1) + '), next will be #' + ((state.nextComputerColor + 1) % 3 + 1));
         state.nextComputerColor += 1;
       }
       this.draft.draftFurniture = this.furnitureManager.add(this.draft.draftFurniture, created);
