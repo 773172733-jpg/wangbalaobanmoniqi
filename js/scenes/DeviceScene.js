@@ -132,6 +132,7 @@ class DeviceScene {
           this.requestRender();
           return;
         }
+        this.ensureMapReady();
         this.placementMode = true;
         this.placementType = this.selectedType;
         this.placementGridCell = null;
@@ -302,24 +303,34 @@ class DeviceScene {
       this.requestRender();
       return;
     }
-    const price = config.purchasePrice;
-    if (state.player.cash < price) {
-      this.toast = '资金不足';
-      this.requestRender();
-      return;
-    }
-    state.player.cash -= price;
-    state.devices = this.deviceSystem.sanitizeDevices(state.devices, state.furniture).devices;
-    state.devices[this.placementType].owned += 1;
-    state.devices[this.placementType].installed += 1;
-    this.deviceSystem.createComputerDeskAt(state, this.placementType, gx, gy);
-    this.toast = '已购买并放置于(' + (gx+1) + ',' + (gy+1) + ')';
+    // Save values before clearing state
+    const purchaseType = this.placementType;
+    const targetX = gx;
+    const targetY = gy;
     this.placementMode = false;
     this.placementType = null;
     this.placementGridCell = null;
     this.cachedState = null;
     this.cachedSummary = null;
-    this.deviceSystem.saveManager && this.deviceSystem.saveManager.save(state)
+    // Use DeviceSystem.purchase for proper finance tracking
+    const result = this.deviceSystem.purchase(purchaseType);
+    if (!result.ok) {
+      this.toast = result.message;
+      this.requestRender();
+      return;
+    }
+    // Move auto-placed desk to chosen position
+    const freshState = this.gameState.getState();
+    const desks = (freshState.furniture || []).filter(f => f && f.sourceSystem === 'device');
+    const lastDesk = desks[desks.length - 1];
+    if (lastDesk) {
+      lastDesk.gridX = targetX;
+      lastDesk.gridY = targetY;
+    } else {
+      this.deviceSystem.createComputerDeskAt(freshState, purchaseType, targetX, targetY);
+    }
+    this.toast = '已购买并放置于(' + (targetX+1) + ',' + (targetY+1) + ')';
+    this.deviceSystem.saveManager && this.deviceSystem.saveManager.save(freshState);
     this.requestRender();
   }
 
