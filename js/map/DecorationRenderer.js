@@ -131,7 +131,7 @@ class DecorationRenderer {
     if (item.textureVariant != null && config.visual && config.visual.variants) {
       const variant = config.visual.variants[item.textureVariant];
       if (variant) {
-        effectiveConfig = Object.assign({}, config, { visual: Object.assign({}, config.visual, { spriteKey: variant.spriteKey, spritePath: variant.spritePath }) });
+        effectiveConfig = Object.assign({}, config, { visual: Object.assign({}, config.visual, { spriteKey: variant.spriteKey, spritePath: variant.spritePath, renderScale: variant.scale != null ? variant.scale * (config.visual.renderScale || 1) : config.visual.renderScale }) });
       }
     }
     const renderConfig = Object.assign({}, effectiveConfig, { renderStyle: (effectiveConfig.visual && effectiveConfig.visual.fallbackStyle) || effectiveConfig.renderStyle });
@@ -236,7 +236,7 @@ class DecorationRenderer {
       if (item.textureVariant != null && config.visual && config.visual.variants) {
         const variant = config.visual.variants[item.textureVariant];
         if (variant) {
-          effectiveConfig = Object.assign({}, config, { visual: Object.assign({}, config.visual, { spriteKey: variant.spriteKey, spritePath: variant.spritePath }) });
+          effectiveConfig = Object.assign({}, config, { visual: Object.assign({}, config.visual, { spriteKey: variant.spriteKey, spritePath: variant.spritePath, renderScale: variant.scale != null ? variant.scale * (config.visual.renderScale || 1) : config.visual.renderScale }) });
         }
       }
       const renderConfig = Object.assign({}, effectiveConfig, { renderStyle: (effectiveConfig.visual && effectiveConfig.visual.fallbackStyle) || effectiveConfig.renderStyle });
