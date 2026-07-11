@@ -80,12 +80,15 @@ class EmployeeScene {
     if (this._isDragging) {
       this.scrollOffset = this._gestureStartOffset + dy;
       this.requestRender();
+      console.log('[Employee] scroll offset=' + Math.round(this.scrollOffset));
     }
   }
 
   onTouchEnd() {
+    var wasDragging = this._isDragging;
     this._gestureStartY = 0;
     this._isDragging = false;
+    return wasDragging;
   }
 
   drawHeader(context, box, state) {
