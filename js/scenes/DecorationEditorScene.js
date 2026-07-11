@@ -334,7 +334,7 @@ class DecorationEditorScene {
     CanvasUtils.fillRoundedRect(context, box, 7, '#0d2232'); CanvasUtils.strokeRoundedRect(context, box, 7, '#d3a845', 1);
     context.fillStyle = '#f3d47d'; context.font = 'bold 13px sans-serif'; context.textAlign = 'left'; context.fillText('家具库', box.x + 12, box.y + 22);
     this.button(context, 'drawer:close', rect(box.x + box.width - 46, box.y + 2, 40, 40), '×', true, () => { this.drawerOpen = false; this.requestRender(); });
-    const categories = ['全部', '电脑', '功能', '休息', '装饰', '墙体', '空间管理'];
+    const categories = ['全部', '功能', '休息', '装饰', '墙体', '空间管理'];
     const tabW = (box.width - 16) / categories.length;
     categories.forEach((name, index) => this.button(context, 'drawer:cat:' + name, rect(box.x + 8 + index * tabW, box.y + 43, tabW - 3, 40), name, true, () => { this.category = name; this.catalogScroll = 0; this.requestRender(); }, this.category === name));
     const listTop = box.y + 90;
@@ -344,7 +344,8 @@ class DecorationEditorScene {
       this.drawExpansionInDrawer(context, rect(box.x + 8, listTop, box.width - 16, visibleH));
       return;
     }
-    const items = this.category === '全部' ? catalog : catalog.filter((item) => item.category === this.category);
+    const allItems = this.category === '全部' ? catalog : catalog.filter((item) => item.category === this.category);
+    const items = allItems.filter((item) => item.category !== '电脑');
     const contentH = items.length * (cardH + 6);
     this.catalogScroll = Math.min(this.catalogScroll, Math.max(0, contentH - visibleH));
     context.save(); context.beginPath(); context.rect(box.x + 5, listTop, box.width - 10, visibleH); context.clip();

@@ -439,7 +439,6 @@ class DeviceScene {
   }
 
   render(context, bounds, state) {
-    this.inputManager.clear();
     if (this.placementMode) {
       this.drawPlacementOverlay(context, { x: bounds.x, y: bounds.y, width: bounds.width, height: bounds.height });
       return;
