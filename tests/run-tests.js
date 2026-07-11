@@ -99,6 +99,7 @@ function simulationFixture(options) {
     gaming_pc: { owned: settings.gaming || 0, installed: settings.gaming || 0, level: 1, condition: 100 },
     premium_pc: { owned: settings.premium || 0, installed: settings.premium || 0, level: 1, condition: 100 },
     gigabit_router: { owned: settings.router ? 1 : 0, installed: settings.router ? 1 : 0, level: settings.routerLevel || 1, condition: 100 },
+    commercial_ac: { owned: settings.air ? 1 : 0, installed: settings.air ? 1 : 0, level: settings.airLevel || 1, condition: 100 },
     ups_power: { owned: settings.ups ? 1 : 0, installed: settings.ups ? 1 : 0, level: settings.upsLevel || 1, condition: 100 }
   };
   raw.employees = settings.employees || []; if (settings.marketing) raw.marketing.activeCampaigns = [{ id: 'online_ads', startDay: 1, endDay: 99 }];
@@ -128,6 +129,16 @@ function testBusinessSimulation() {
 
   const plain = simulationFixture({ basic: 5, router: true, ups: true }); const plainHistory = runSimulationDays(plain, 5);
   const decorated = simulationFixture({ basic: 5, router: true, ups: true, decor: ['plant', 'plant', 'sofa', 'decorative_light', 'trash_bin'] }); const decoratedHistory = runSimulationDays(decorated, 5); assert.ok(new OperatingMetricsSystem().getMetrics(decorated.gameState.getState()).decoration.environmentScore > new OperatingMetricsSystem().getMetrics(plain.gameState.getState()).decoration.environmentScore); assert.ok(decoratedHistory.reduce((sum, day) => sum + day.averageSatisfaction, 0) >= plainHistory.reduce((sum, day) => sum + day.averageSatisfaction, 0));
+
+  const full = simulationFixture({ premium: 20, router: true, routerLevel: 5, ups: true, upsLevel: 5, air: true, airLevel: 5, marketing: true, decor: ['plant', 'sofa', 'decorative_light', 'trash_bin'], employees: [{ id: 'manager', type: 'manager', salary: 10000, attributes: { service: 90, efficiency: 90, technology: 80, marketing: 85 }, traits: ['管理'] }, { id: 'cleaner', type: 'cleaner', salary: 3000, attributes: { service: 70, efficiency: 90, technology: 20, marketing: 10 }, traits: ['勤快'] }] });
+  const fullMetrics = new OperatingMetricsSystem().getMetrics(full.gameState.getState());
+  const plainMetrics = new OperatingMetricsSystem().getMetrics(plain.gameState.getState());
+  assert.ok(fullMetrics.cafe.level > plainMetrics.cafe.level);
+  assert.ok(fullMetrics.cafe.businessScore > plainMetrics.cafe.businessScore);
+  assert.ok(fullMetrics.cafe.naturalTrafficMultiplier > plainMetrics.cafe.naturalTrafficMultiplier);
+  assert.ok(fullMetrics.equipment.climateQuality > plainMetrics.equipment.climateQuality);
+  runSimulationDays(full, 2);
+  assert.strictEqual(full.gameState.getState().player.level, fullMetrics.cafe.level);
 
   const finance = new FinanceSystem(basic.gameState, basic.saveManager); const firstDay = basic.gameState.getState().businessSimulation.dailyHistory[0].date; const beforeCount = finance.getTransactions({ category: 'seat_income' }).length; const duplicate = basic.business.settleDay(firstDay); assert.ok(duplicate.skipped || duplicate.results.every((item) => item.duplicate)); assert.strictEqual(finance.getTransactions({ category: 'seat_income' }).length, beforeCount);
   const lastKey = basic.gameState.getState().businessSimulation.lastProcessedHourKey; const current = basic.timeManager.getCurrentGameTime(); basic.business.processHour(current); assert.strictEqual(basic.gameState.getState().businessSimulation.lastProcessedHourKey, lastKey);

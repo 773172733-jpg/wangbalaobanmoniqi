@@ -127,8 +127,14 @@ class DeviceSystem {
     });
     const router = this.getRecord(root.devices, 'gigabit_router'); const routerConfig = this.catalog.byType.gigabit_router;
     const ups = this.getRecord(root.devices, 'ups_power'); const upsConfig = this.catalog.byType.ups_power;
+    const air = this.getRecord(root.devices, 'commercial_ac'); const airConfig = this.catalog.byType.commercial_ac;
     const count = pools.reduce((sum, pool) => sum + pool.count, 0); const performance = pools.reduce((sum, pool) => sum + pool.count * pool.performance, 0);
-    return { installedComputerCount: count, computerPools: pools, averagePerformance: count ? Math.round(performance / count) : 0, equipmentScore: this.calculateScore(root.devices), networkQuality: Math.min(100, 25 + router.installed * 35 + (router.level - 1) * 8), networkCapacity: 5 + router.installed * routerConfig.capacity * (1 + (router.level - 1) * 0.25), powerCapacity: 4 + ups.installed * upsConfig.capacity * (1 + (ups.level - 1) * 0.25), currentPowerDemand: Math.round(this.catalog.items.reduce((sum, config) => sum + this.getRecord(root.devices, config.type).installed * config.powerUsage * (config.requiresComputerSlot ? 0.15 : 1), 0) * 10) / 10 };
+    const averagePerformance = count ? Math.round(performance / count) : 0;
+    const averageCondition = this.calculateAverageCondition(root.devices);
+    const networkQuality = clamp(25 + router.installed * 35 + (router.level - 1) * 8, 0, 100);
+    const powerQuality = clamp(25 + ups.installed * 35 + (ups.level - 1) * 8, 0, 100);
+    const climateQuality = clamp(25 + air.installed * airConfig.capacity * 5 + (air.level - 1) * 9, 0, 100);
+    return { installedComputerCount: count, computerPools: pools, averagePerformance: averagePerformance, computerQuality: clamp(Math.round(averagePerformance * 0.8 + averageCondition * 0.2), 0, 100), equipmentScore: this.calculateScore(root.devices), averageCondition: averageCondition, networkQuality: networkQuality, networkCapacity: 5 + router.installed * routerConfig.capacity * (1 + (router.level - 1) * 0.25), powerQuality: powerQuality, powerCapacity: 4 + ups.installed * upsConfig.capacity * (1 + (ups.level - 1) * 0.25), climateQuality: climateQuality, climateSupport: air.installed ? Math.round((climateQuality - 25) * 0.2) : 0, currentPowerDemand: Math.round(this.catalog.items.reduce((sum, config) => sum + this.getRecord(root.devices, config.type).installed * config.powerUsage * (config.requiresComputerSlot ? 0.15 : 1), 0) * 10) / 10 };
   }
 
   commit(mutator) {

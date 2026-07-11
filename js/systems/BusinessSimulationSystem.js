@@ -37,7 +37,7 @@ class BusinessSimulationSystem {
   }
 
   getPotential(segment, time, metrics) {
-    const period = this.getPeriod(time.hour); const segmentTime = segment.timeMultipliers[period.id] || 1; const scale = 1 + (metrics.cafe.areaLevel - 1) * config.areaTrafficPerLevel; const awareness = 1 + metrics.marketing.awareness * config.awarenessTrafficWeight; const reputation = 1 + metrics.cafe.reputation * config.reputationTrafficWeight; const raw = config.baseDailyTraffic / 24 * period.multiplier * segmentTime * scale * awareness * reputation * metrics.marketing.trafficMultiplier * (metrics.marketing.segmentMultipliers[segment.type] || 1) * segment.baseShare; const floor = Math.floor(raw); return floor + (this.seeded(hourKey(time) + '_' + segment.type) < raw - floor ? 1 : 0);
+    const period = this.getPeriod(time.hour); const segmentTime = segment.timeMultipliers[period.id] || 1; const scale = 1 + (metrics.cafe.areaLevel - 1) * config.areaTrafficPerLevel; const awareness = 1 + metrics.marketing.awareness * config.awarenessTrafficWeight; const reputation = 1 + metrics.cafe.reputation * config.reputationTrafficWeight; const raw = config.baseDailyTraffic / 24 * period.multiplier * segmentTime * scale * awareness * reputation * metrics.cafe.naturalTrafficMultiplier * metrics.marketing.trafficMultiplier * (metrics.marketing.segmentMultipliers[segment.type] || 1) * segment.baseShare; const floor = Math.floor(raw); return floor + (this.seeded(hourKey(time) + '_' + segment.type) < raw - floor ? 1 : 0);
   }
 
   processHour(time) {
@@ -59,7 +59,7 @@ class BusinessSimulationSystem {
     const capacity = metrics.equipment.installedComputerCount; business.today.occupancySamples.push(capacity ? activeThisHour / capacity : 0); business.today.occupancySamples = business.today.occupancySamples.slice(-24);
     business.activeCohorts.forEach((cohort) => { cohort.remainingHours -= 1; }); business.activeCohorts = business.activeCohorts.filter((cohort) => cohort.remainingHours > 0 && cohort.count > 0);
     business.lastProcessedHourKey = key; business.lastHourResult = { hourKey: key, potentialCustomers: potential, admittedCustomers: allocation.admitted, activeCustomers: activeThisHour, seatIncome: seatIncome, productIncome: productIncome, allocation: allocation };
-    next.cafe.occupancyRate = capacity ? Math.round(activeThisHour / capacity * 100) : 0; next.cafe.customerCount = business.today.admittedCustomers; next.cafe.todayIncome = business.today.seatIncome + business.today.productIncome; next.cafe.currentCustomers = activeThisHour; next.cafe.availableComputers = Math.max(0, capacity - activeThisHour);
+    next.player.level = Math.max(Number(next.player.level) || 1, metrics.cafe.level); next.cafe.businessScore = metrics.cafe.businessScore; next.cafe.occupancyRate = capacity ? Math.round(activeThisHour / capacity * 100) : 0; next.cafe.customerCount = business.today.admittedCustomers; next.cafe.todayIncome = business.today.seatIncome + business.today.productIncome; next.cafe.currentCustomers = activeThisHour; next.cafe.availableComputers = Math.max(0, capacity - activeThisHour);
     this.gameState.replace(next); this.saveManager.save(next); return { ok: true, result: business.lastHourResult };
   }
 

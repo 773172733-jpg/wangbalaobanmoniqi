@@ -16,21 +16,29 @@ const { GAME_VERSION } = require('../data/version');
 class MainScene {
   constructor(dependencies) {
     Object.assign(this, dependencies);
-    this.name = 'MainScene'; this.settingsOpen = false;
+    this.name = 'MainScene';
+    this.settingsOpen = false;
     this.activeSceneId = 'overview';
     this.uiManager = new UIManager(this.inputManager);
     this.topBar = new TopBar();
     this.tabs = [
       { id: 'overview', label: '概览' },
-      { id: 'decoration', label: '购买' },
-      { id: 'device', label: '基础' },
+      { id: 'decoration', label: '装修' },
+      { id: 'device', label: '设备' },
       { id: 'employee', label: '员工' },
       { id: 'marketing', label: '营销' },
       { id: 'finance', label: '财务' }
     ];
     this.bottomTabBar = new BottomTabBar(this.tabs);
     this.versionDisplay = new VersionDisplay();
-    const sceneDependencies = Object.assign({}, dependencies, { requestRender: () => this.render(), onOpenDecorationEditor: () => { if (this.onOpenDecorationEditor) this.onOpenDecorationEditor(); } });
+
+    const sceneDependencies = Object.assign({}, dependencies, {
+      requestRender: () => this.render(),
+      onOpenDecorationEditor: () => {
+        if (this.onOpenDecorationEditor) this.onOpenDecorationEditor();
+      }
+    });
+
     this.scenes = {
       overview: new OverviewScene(sceneDependencies),
       device: new DeviceScene(sceneDependencies),
@@ -53,7 +61,9 @@ class MainScene {
       if (this.onOpenDecorationEditor) this.onOpenDecorationEditor();
       return;
     }
+
     if (!this.scenes[sceneId] || sceneId === this.activeSceneId) return;
+
     const current = this.scenes[this.activeSceneId];
     if (current && current.beforeLeave) {
       const canLeave = current.beforeLeave(() => this.forceSwitchScene(sceneId));
@@ -62,6 +72,7 @@ class MainScene {
         return;
       }
     }
+
     this.forceSwitchScene(sceneId);
   }
 
@@ -74,54 +85,115 @@ class MainScene {
     console.log('[场景] 当前页面: ' + this.scenes[sceneId].title);
   }
 
+  toggleSettings() {
+    this.settingsOpen = !this.settingsOpen;
+    this.render();
+  }
 
-  toggleSettings() { this.settingsOpen = !this.settingsOpen; this.render(); }
+  drawSettingsGear(context, box) {
+    context.save();
+    CanvasUtils.fillRoundedRect(context, box, 8, '#102638');
+    CanvasUtils.strokeRoundedRect(context, box, 8, '#d7a84b', 1);
+    context.fillStyle = '#f0c15b';
+    context.font = 'bold 23px sans-serif';
+    context.textAlign = 'center';
+    context.textBaseline = 'middle';
+    context.fillText('\u2699', box.x + box.width / 2, box.y + box.height / 2 + 1);
+    context.restore();
 
-  drawSettingsOverlay(context, viewport) {
-    if (!this.settingsOpen) return;
-    // Backdrop
-    context.fillStyle = 'rgba(0,0,0,0.45)';
-    context.fillRect(0, 0, viewport.width, viewport.height);
-    const config = settings.getSettings();
-    const w = Math.min(280, viewport.width - 40);
-    const h = 190;
-    const x = (viewport.width - w) / 2;
-    const y = (viewport.height - h) / 2;
-
-    CanvasUtils.fillRoundedRect(context, { x, y, width: w, height: h }, 8, '#0d2232');
-    CanvasUtils.strokeRoundedRect(context, { x, y, width: w, height: h }, 8, '#efc45c', 2);
-
-    context.fillStyle = '#f0c15b'; context.font = 'bold 14px sans-serif'; context.textAlign = 'center';
-    context.fillText('游戏设置', x + w / 2, y + 28);
-
-    // BGM
-    context.fillStyle = '#e8eeea'; context.font = '12px sans-serif'; context.textAlign = 'left';
-    context.fillText('背景音乐', x + 20, y + 62);
-    this.drawToggleBtn(context, 'settings:bgm', { x: x + w - 86, y: y + 44, width: 66, height: 26 },
-      config.bgmEnabled, () => { settings.setBgm(!settings.isBgmEnabled()); this.render(); });
-
-    // SFX
-    context.fillText('按键音', x + 20, y + 96);
-    this.drawToggleBtn(context, 'settings:sfx', { x: x + w - 86, y: y + 78, width: 66, height: 26 },
-      config.sfxEnabled, () => { settings.setSfx(!settings.isSfxEnabled()); this.render(); });
-
-    // Version
-    context.fillStyle = '#718897'; context.font = '10px monospace'; context.textAlign = 'center';
-    context.fillText('版本号: V ' + GAME_VERSION, x + w / 2, y + 148);
-
-    // Close area (tap backdrop)
-    this.inputManager.register('settings:close', { x: 0, y: 0, width: viewport.width, height: viewport.height },
-      () => { this.settingsOpen = false; this.render(); });
+    this.inputManager.register('settings:gear', box, () => this.toggleSettings());
   }
 
   drawToggleBtn(context, id, box, enabled, action) {
-    CanvasUtils.fillRoundedRect(context, box, 4, enabled ? '#a97022' : '#263845');
-    CanvasUtils.strokeRoundedRect(context, box, 4, enabled ? '#efc45c' : '#3a5362', 1);
-    context.fillStyle = enabled ? '#f5f0df' : '#728591';
-    context.font = 'bold 10px sans-serif'; context.textAlign = 'center';
-    context.fillText(enabled ? 'ON' : 'OFF', box.x + box.width / 2, box.y + box.height / 2 + 3);
+    CanvasUtils.fillRoundedRect(context, box, 12, enabled ? '#b57a25' : '#243747');
+    CanvasUtils.strokeRoundedRect(context, box, 12, enabled ? '#f0c15b' : '#3a5362', 1);
+
+    const knobSize = box.height - 8;
+    const knobX = enabled ? box.x + box.width - knobSize - 4 : box.x + 4;
+    CanvasUtils.fillRoundedRect(
+      context,
+      { x: knobX, y: box.y + 4, width: knobSize, height: knobSize },
+      knobSize / 2,
+      enabled ? '#fff3cf' : '#8fa5b4'
+    );
+
+    context.fillStyle = enabled ? '#fff3cf' : '#8fa5b4';
+    context.font = 'bold 9px sans-serif';
+    context.textAlign = 'center';
+    context.textBaseline = 'middle';
+    context.fillText(enabled ? 'ON' : 'OFF', enabled ? box.x + 17 : box.x + box.width - 17, box.y + box.height / 2);
+
     this.inputManager.register(id, box, action);
   }
+
+  drawSettingsOverlay(context, viewport) {
+    if (!this.settingsOpen) return;
+
+    this.inputManager.register('settings:backdrop', { x: 0, y: 0, width: viewport.width, height: viewport.height }, () => {
+      this.settingsOpen = false;
+      this.render();
+    });
+
+    context.save();
+    context.fillStyle = 'rgba(0,0,0,0.58)';
+    context.fillRect(0, 0, viewport.width, viewport.height);
+
+    const config = settings.getSettings();
+    const width = Math.min(320, viewport.width - 48);
+    const height = 210;
+    const x = Math.round((viewport.width - width) / 2);
+    const y = Math.round((viewport.height - height) / 2);
+    const panel = { x, y, width, height };
+
+    CanvasUtils.fillRoundedRect(context, panel, 10, '#0d2232');
+    CanvasUtils.strokeRoundedRect(context, panel, 10, '#efc45c', 2);
+    context.fillStyle = '#071522';
+    context.fillRect(x + 1, y + 44, width - 2, 1);
+
+    context.fillStyle = '#f0c15b';
+    context.font = 'bold 15px sans-serif';
+    context.textAlign = 'left';
+    context.textBaseline = 'alphabetic';
+    context.fillText('游戏设置', x + 18, y + 29);
+
+    const closeBox = { x: x + width - 42, y: y + 8, width: 32, height: 32 };
+    CanvasUtils.fillRoundedRect(context, closeBox, 6, '#162f42');
+    CanvasUtils.strokeRoundedRect(context, closeBox, 6, '#3a5362', 1);
+    context.fillStyle = '#d7e3e7';
+    context.font = 'bold 16px sans-serif';
+    context.textAlign = 'center';
+    context.textBaseline = 'middle';
+    context.fillText('×', closeBox.x + closeBox.width / 2, closeBox.y + closeBox.height / 2);
+    this.inputManager.register('settings:close', closeBox, () => {
+      this.settingsOpen = false;
+      this.render();
+    });
+
+    const rows = [
+      ['背景音乐', '控制主界面背景音乐', config.bgmEnabled, () => { settings.setBgm(!settings.isBgmEnabled()); this.render(); }, 'settings:bgm'],
+      ['按键音效', '控制点击与操作反馈音', config.sfxEnabled, () => { settings.setSfx(!settings.isSfxEnabled()); this.render(); }, 'settings:sfx']
+    ];
+
+    rows.forEach((row, index) => {
+      const rowY = y + 66 + index * 48;
+      context.fillStyle = '#e8eeea';
+      context.font = 'bold 12px sans-serif';
+      context.textAlign = 'left';
+      context.textBaseline = 'alphabetic';
+      context.fillText(row[0], x + 20, rowY);
+      context.fillStyle = '#718897';
+      context.font = '9px sans-serif';
+      context.fillText(row[1], x + 20, rowY + 17);
+      this.drawToggleBtn(context, row[4], { x: x + width - 90, y: rowY - 20, width: 66, height: 28 }, row[2], row[3]);
+    });
+
+    context.fillStyle = '#718897';
+    context.font = '10px monospace';
+    context.textAlign = 'center';
+    context.fillText('版本 V ' + GAME_VERSION, x + width / 2, y + height - 22);
+    context.restore();
+  }
+
   render() {
     const context = this.context;
     const viewport = this.viewport;
@@ -129,8 +201,10 @@ class MainScene {
     const contentWidth = viewport.width - viewport.safeLeft - viewport.safeRight;
     const topY = viewport.safeTop;
     const topHeight = Math.max(52, Math.min(58, viewport.height * 0.135));
-    const navWidth = Math.max(80, Math.min(92, contentWidth * 0.105));
     const contentBottom = viewport.height - viewport.safeBottom;
+    const navWidth = Math.max(80, Math.min(92, contentWidth * 0.105));
+    const gearSize = 38;
+    const gearGap = 8;
 
     this.uiManager.beginFrame();
     context.clearRect(0, 0, viewport.width, viewport.height);
@@ -138,38 +212,37 @@ class MainScene {
     context.fillRect(0, 0, viewport.width, viewport.height);
 
     const state = this.gameState.getState();
-    const topBarWidth = contentWidth - navWidth;
     this.topBar.draw(context, {
       x: contentLeft + navWidth,
       y: topY,
-      width: topBarWidth,
+      width: contentWidth - navWidth,
       height: topHeight
     }, state, this.timeManager.getDisplayDate());
 
-
-    this.scenes[this.activeSceneId].render(context, {
+    const sceneBounds = {
       x: contentLeft + navWidth,
       y: topY + topHeight,
       width: contentWidth - navWidth,
       height: Math.max(0, contentBottom - topY - topHeight)
-    }, state);
+    };
+    this.scenes[this.activeSceneId].render(context, sceneBounds, state);
 
-    this.versionDisplay.draw(context, this.viewport);
-    // Settings gear - bottom right
-    const gearSize = 32;
-    const gearBoxBR = { x: viewport.width - viewport.safeRight - gearSize - 8, y: viewport.height - viewport.safeBottom - gearSize - 6, width: gearSize, height: gearSize };
-    context.save(); context.globalAlpha = 0.45;
-    context.fillStyle = '#f0c15b'; context.font = 'bold 20px sans-serif'; context.textAlign = 'center';
-    context.fillText('\u2699', gearBoxBR.x + gearBoxBR.width/2, gearBoxBR.y + gearBoxBR.height/2 + 6);
-    context.restore();
-    this.inputManager.register('settings:gear', gearBoxBR, () => this.toggleSettings());
-    this.drawSettingsOverlay(context, viewport);
     this.bottomTabBar.draw(context, {
       x: contentLeft,
       y: topY,
       width: navWidth,
       height: contentBottom - topY
     }, this.activeSceneId, this.inputManager, this.switchScene.bind(this));
+
+    this.drawSettingsGear(context, {
+      x: contentLeft + contentWidth - gearSize - gearGap,
+      y: contentBottom - gearSize - 6,
+      width: gearSize,
+      height: gearSize
+    });
+
+    this.versionDisplay.draw(context, this.viewport);
+    this.drawSettingsOverlay(context, viewport);
   }
 }
 

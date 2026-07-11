@@ -241,12 +241,12 @@ class OverviewScene {
   }
 
   render(context, bounds, state) {
-    const padding = Math.max(5, Math.min(6, bounds.width * 0.008));
+    const padding = Math.max(4, Math.min(5, bounds.width * 0.006));
     const titleHeight = 24;
     const metricsHeight = Math.max(44, Math.min(48, bounds.height * 0.145));
     const bodyY = bounds.y + titleHeight;
     const bodyHeight = Math.max(1, bounds.height - titleHeight - metricsHeight - padding * 2);
-    const sideWidth = Math.max(135, Math.min(150, bounds.width * 0.19));
+    const sideWidth = Math.max(118, Math.min(136, bounds.width * 0.165));
     const mapWidth = Math.max(1, bounds.width - sideWidth - padding * 3);
     const nextMapBounds = rect(bounds.x + padding, bodyY, mapWidth, bodyHeight);
     const sizeChanged = nextMapBounds.x !== this.mapBounds.x || nextMapBounds.y !== this.mapBounds.y || nextMapBounds.width !== this.mapBounds.width || nextMapBounds.height !== this.mapBounds.height;
@@ -273,7 +273,9 @@ class OverviewScene {
       context.fillStyle = '#d5dfdf'; context.font = '9px sans-serif'; context.textAlign = 'center'; context.fillText('拖动查看网吧其他区域', hint.x + hint.width / 2, hint.y + 14);
     }
     this.drawDailyPanel(context, rect(bounds.x + padding * 2 + mapWidth, bodyY, sideWidth, bodyHeight), state);
-    this.drawMetricCards(context, rect(bounds.x + padding, bodyY + bodyHeight + padding, bounds.width - padding * 2, metricsHeight), state, summary);
+    const settingsReserveWidth = 54;
+    const metricsWidth = Math.max(1, bounds.width - padding * 2 - settingsReserveWidth);
+    this.drawMetricCards(context, rect(bounds.x + padding, bodyY + bodyHeight + padding, metricsWidth, metricsHeight), state, summary);
     if (this.debugPanel) this.debugPanel.draw(context, rect(this.mapBounds.x + 8, this.mapBounds.y + 30, 178, 93));
   }
 }

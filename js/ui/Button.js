@@ -9,22 +9,26 @@ class Button {
 
   draw(context) {
     context.save();
-    CanvasUtils.fillRoundedRect(context, this, 5, this.selected ? '#b57a25' : '#102638');
-    if (this.selected) CanvasUtils.strokeRoundedRect(context, this, 5, '#f0c15b', 1);
-    context.fillStyle = this.selected ? '#fff3cf' : '#b4c1ca';
-    context.font = this.horizontal ? '13px sans-serif' : '13px sans-serif';
-    context.textAlign = this.horizontal ? 'left' : 'center';
+    CanvasUtils.fillRoundedRect(context, this, 6, this.selected ? '#b57a25' : '#102638');
+    CanvasUtils.strokeRoundedRect(context, this, 6, this.selected ? '#f0c15b' : '#213b4d', 1);
     context.textBaseline = 'middle';
+
     if (this.horizontal) {
+      context.textAlign = 'left';
       context.fillStyle = this.selected ? '#ffd36b' : '#7f96a6';
-      context.font = 'bold 15px sans-serif';
-      context.fillText(this.icon || '•', this.x + 12, this.y + this.height / 2);
+      context.font = 'bold 13px sans-serif';
+      context.fillText(this.icon || '•', this.x + 10, this.y + this.height / 2);
+
       context.fillStyle = this.selected ? '#fff3cf' : '#b4c1ca';
-      context.font = '12px sans-serif';
-      context.fillText(this.label, this.x + 34, this.y + this.height / 2);
+      context.font = '11px sans-serif';
+      context.fillText(this.label, this.x + 32, this.y + this.height / 2);
     } else {
+      context.fillStyle = this.selected ? '#fff3cf' : '#b4c1ca';
+      context.font = '13px sans-serif';
+      context.textAlign = 'center';
       context.fillText(this.label, this.x + this.width / 2, this.y + this.height / 2);
     }
+
     context.restore();
   }
 

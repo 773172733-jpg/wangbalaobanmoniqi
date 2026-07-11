@@ -5,7 +5,7 @@ module.exports = {
   millisecondsPerGameHour: 15000,
   daysPerMonth: 30,
   monthsPerYear: 12,
-  baseDailyTraffic: 40,
+  baseDailyTraffic: 48,
   hourlyRate: 8,
   baseServiceCapacity: 5,
   baseServiceScore: 40,
@@ -21,6 +21,9 @@ module.exports = {
   reputationTrafficWeight: 0.005,
   awarenessTrafficWeight: 0.006,
   areaTrafficPerLevel: 0.15,
+  businessLevelThresholds: [0, 22, 32, 42, 52, 62, 70, 77, 84, 91],
+  minimumNaturalTrafficMultiplier: 0.7,
+  maximumNaturalTrafficMultiplier: 2.2,
   satisfactionSmoothing: 0.2,
   timePeriods: [
     { id: 'late_night', start: 0, end: 6, multiplier: 0.25 }, { id: 'morning', start: 6, end: 9, multiplier: 0.35 },

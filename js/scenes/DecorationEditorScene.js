@@ -372,9 +372,10 @@ class DecorationEditorScene {
     const rating = this.draft.cachedRatings;
     const status = '现金 ¥' + this.draft.draftCash.toLocaleString() + '  |  综合 ' + rating.overall + '  |  容量 ' + rating.capacity;
     context.fillStyle = '#dce6e8'; context.font = '11px sans-serif'; context.fillText(status, box.x + Math.min(180, box.width * 0.25), box.y + 26);
-    if (this.draft.dirty) { context.fillStyle = '#f0c15b'; context.fillText('● 未保存', box.x + box.width - 146, box.y + 26); }
-    else { context.fillStyle = '#77909e'; context.fillText('已保存', box.x + box.width - 136, box.y + 26); }
-    this.button(context, 'editor:save', rect(box.x + box.width - 72, box.y + 1, 66, Math.max(40, box.height - 2)), '保存', true, () => this.savePlan(false), false, true);
+    const rightSafeOffset = 52;
+    if (this.draft.dirty) { context.fillStyle = '#f0c15b'; context.fillText('● 未保存', box.x + box.width - 146 - rightSafeOffset, box.y + 26); }
+    else { context.fillStyle = '#77909e'; context.fillText('已保存', box.x + box.width - 136 - rightSafeOffset, box.y + 26); }
+    this.button(context, 'editor:save', rect(box.x + box.width - 72 - rightSafeOffset, box.y + 1, 66, Math.max(40, box.height - 2)), '保存', true, () => this.savePlan(false), false, true);
   }
 
   drawToolbar(context, box) {

@@ -9,6 +9,7 @@ const RatingSystem = require('../systems/RatingSystem');
 const DeviceSystem = require('../systems/DeviceSystem');
 const EmployeeSystem = require('../systems/EmployeeSystem');
 const FinanceSystem = require('../systems/FinanceSystem');
+const OperatingMetricsSystem = require('../systems/OperatingMetricsSystem');
 
 function clone(value) {
   return JSON.parse(JSON.stringify(value));
@@ -46,6 +47,7 @@ class SaveManager {
     this.deviceSystem = new DeviceSystem();
     this.employeeSystem = new EmployeeSystem();
     this.financeSystem = new FinanceSystem();
+    this.operatingMetricsSystem = new OperatingMetricsSystem();
   }
 
   load() {
@@ -186,6 +188,12 @@ class SaveManager {
     ratings = this.ratingSystem.combineEmployeeRating(ratings, this.employeeSystem.getServiceScore(merged));
     ratings.satisfaction = Math.max(0, Math.min(100, Math.round(Number(merged.cafe.satisfaction) || ratings.overall)));
     merged.cafe = Object.assign({}, merged.cafe, ratings);
+    const operating = this.operatingMetricsSystem.getMetrics(merged);
+    merged.player.level = Math.max(1, Math.min(10, Math.max(Number(merged.player.level) || 1, operating.cafe.level)));
+    merged.cafe.businessScore = operating.cafe.businessScore;
+    merged.cafe.environment = operating.decoration.environmentScore;
+    merged.cafe.comfort = operating.decoration.comfortScore;
+    merged.cafe.hygiene = operating.decoration.hygieneScore;
     return merged;
   }
 }
