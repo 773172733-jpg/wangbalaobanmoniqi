@@ -1,4 +1,4 @@
-﻿'use strict';
+'use strict';
 
 const DecorationRenderer = require('../map/DecorationRenderer');
 const GridMap = require('../map/GridMap');
@@ -219,7 +219,7 @@ class OverviewScene {
     const cards = [
       ['正在上机', current + ' / ' + capacity, '#4e8fc1'], ['上座率', cafe.occupancyRate + '%', '#4e8fc1'],
       ['今日顾客', today.admittedCustomers + '人', '#6cad78'], ['今日流失', today.lostCustomers + '人', '#dd8452'],
-      ['今日收入', '¥' + cafe.todayIncome.toLocaleString(), '#d9a941'], ['网络状态', networkSeats >= current ? '正常' : '拥堵', networkSeats >= current ? '#69aa75' : '#cf7654'],
+      ['网络状态', networkSeats >= current ? '正常' : '拥堵', networkSeats >= current ? '#69aa75' : '#cf7654'],
       ['供电状态', powerShort ? '不足' : '正常', powerShort ? '#cf7654' : '#69aa75'], ['服务压力', current <= metrics.employee.serviceCapacity ? '正常' : '过载', current <= metrics.employee.serviceCapacity ? '#69aa75' : '#cf7654']
     ];
     const gap = 4;

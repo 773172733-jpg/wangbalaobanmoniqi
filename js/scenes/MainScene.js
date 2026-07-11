@@ -146,7 +146,6 @@ class MainScene {
       height: topHeight
     }, state, this.timeManager.getDisplayDate());
 
-    this.drawSettingsOverlay(context, viewport);
 
     this.scenes[this.activeSceneId].render(context, {
       x: contentLeft + navWidth,
@@ -156,6 +155,15 @@ class MainScene {
     }, state);
 
     this.versionDisplay.draw(context, this.viewport);
+    // Settings gear - bottom right
+    const gearSize = 32;
+    const gearBoxBR = { x: viewport.width - viewport.safeRight - gearSize - 8, y: viewport.height - viewport.safeBottom - gearSize - 6, width: gearSize, height: gearSize };
+    context.save(); context.globalAlpha = 0.45;
+    context.fillStyle = '#f0c15b'; context.font = 'bold 20px sans-serif'; context.textAlign = 'center';
+    context.fillText('\u2699', gearBoxBR.x + gearBoxBR.width/2, gearBoxBR.y + gearBoxBR.height/2 + 6);
+    context.restore();
+    this.inputManager.register('settings:gear', gearBoxBR, () => this.toggleSettings());
+    this.drawSettingsOverlay(context, viewport);
     this.bottomTabBar.draw(context, {
       x: contentLeft,
       y: topY,
