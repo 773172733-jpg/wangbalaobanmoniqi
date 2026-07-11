@@ -37,7 +37,7 @@ class EmployeeScene {
     this.scrollOffset = 0;
     this._isDragging = false;
     if (this.inputManager) this.inputManager.setGestureHandler(this.gestureHandler);
-    const avatarKeys = ['保洁员_avatar', '双马尾少女_avatar', '外场_avatar', '店长_avatar', '收银_avatar', '阳光小青年_avatar'];
+    const avatarKeys = ['cleaner_avatar', 'girl_avatar', 'waiter_avatar', 'manager_avatar', 'cashier_avatar', 'youth_avatar'];
     avatarKeys.forEach(k => {
       var hasImg = this.assetManager && this.assetManager.hasImage(k);
       console.log('[Employee] avatar ' + k + ': hasImage=' + hasImg + ' assetManager=' + !!this.assetManager);
