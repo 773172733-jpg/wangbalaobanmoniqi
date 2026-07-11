@@ -172,20 +172,18 @@ class DecorationRenderer {
     const floorImg = this.assetManager ? this.assetManager.getImage('floor_concrete_old') : null;
     const sx = Math.round(origin.x);
     const sy = Math.round(origin.y);
-    const fw = Math.round(worldW);
-    const fh = Math.round(worldH);
     if (floorImg && floorImg.width && floorImg.height) {
-      const tileSize = Math.round(cell * camera.zoom);
-      const cols = Math.ceil(fw / tileSize) + 1;
-      const rows = Math.ceil(fh / tileSize) + 1;
+      const ts = Math.round(cell * camera.zoom);
+      const cols = Math.ceil(worldW / ts) + 1;
+      const rows = Math.ceil(worldH / ts) + 1;
       for (let row = 0; row < rows; row++) {
         for (let col = 0; col < cols; col++) {
-          context.drawImage(floorImg, sx + col * tileSize, sy + row * tileSize, tileSize + 1, tileSize + 1);
+          context.drawImage(floorImg, sx + col * ts, sy + row * ts, ts + 1, ts + 1);
         }
       }
     } else {
       context.fillStyle = '#76543b';
-      context.fillRect(sx, sy, fw, fh);
+      context.fillRect(sx, sy, Math.round(worldW), Math.round(worldH));
     }
     if (settings.showGrid) {
       context.strokeStyle = 'rgba(224,186,117,0.18)';
