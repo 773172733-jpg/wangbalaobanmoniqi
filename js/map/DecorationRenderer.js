@@ -204,7 +204,10 @@ class DecorationRenderer {
     var configs = this.getWallConfigs();
     var self = this;
     var cell = cellSize || 40;
-    walls.forEach(function(wall) {
+    // 先画转角(底层)，再画横竖墙(上层)
+    var corners = walls.filter(function(w) { return w.type === "wall_corner"; });
+    var edges = walls.filter(function(w) { return w.type !== "wall_corner"; });
+    function drawOne(wall) {
       var cfg = configs[wall.type];
       if (!cfg) return;
       var image = self.assetManager ? self.assetManager.getImage(cfg.spriteKey) : null;
@@ -230,7 +233,9 @@ class DecorationRenderer {
         context.fillStyle = wall.type === "wall_corner" ? "#5c4a3a" : "#4a3c2f";
         context.fillRect(Math.round(p.x), Math.round(p.y), s, s);
       }
-    });
+    }
+    corners.forEach(drawOne);
+    edges.forEach(drawOne);
   }
 
   drawViewport(context, camera, furniture, options) {
