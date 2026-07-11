@@ -1,9 +1,9 @@
-﻿'use strict';
+'use strict';
 
 const CanvasUtils = require('./CanvasUtils');
 
 class TopBar {
-  draw(context, bounds, state, dateText) {
+  draw(context, bounds, state, dateText, inputManager, onSettings) {
     const cafe = state.cafe;
     const items = [
       ['网吧等级', 'Lv.' + state.player.level],
@@ -30,9 +30,13 @@ class TopBar {
       context.font = (compact ? '9px' : '11px') + ' sans-serif';
       context.textAlign = 'center';
       context.fillText(item[0], centerX, bounds.y + bounds.height * 0.36);
-      context.fillStyle = index === 1 || index === 2 ? '#f2c45e' : '#f4f0df';
-      context.font = (index === 4 ? '' : 'bold ') + (compact ? '11px' : '15px') + ' sans-serif';
+      context.fillStyle = index === 1 || index === 2 ? '#f2c45e' : index === 4 ? '#f0c15b' : '#f4f0df';
+      context.font = (compact ? '13px' : '18px') + ' sans-serif';
       context.fillText(item[1], centerX, bounds.y + bounds.height * 0.7);
+      if (index === 4 && inputManager && onSettings) {
+        const gearBox = { x: bounds.x + index * columnWidth, y: bounds.y, width: columnWidth, height: bounds.height };
+        inputManager.register('topbar:settings', gearBox, onSettings);
+      }
     });
     CanvasUtils.strokeRoundedRect(context, bounds, 0, '#1c3547', 1);
     context.restore();

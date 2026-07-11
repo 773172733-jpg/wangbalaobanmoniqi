@@ -138,22 +138,14 @@ class MainScene {
     context.fillRect(0, 0, viewport.width, viewport.height);
 
     const state = this.gameState.getState();
-    const topBarWidth = contentWidth - navWidth - 44;
+    const topBarWidth = contentWidth - navWidth;
     this.topBar.draw(context, {
       x: contentLeft + navWidth,
       y: topY,
       width: topBarWidth,
       height: topHeight
     }, state, this.timeManager.getDisplayDate());
-    // Settings gear button
-    const gearX = contentLeft + navWidth + topBarWidth + 2;
-    const gearW = 36;
-    const gearBox = { x: gearX, y: topY + 8, width: gearW, height: topHeight - 16 };
-    CanvasUtils.fillRoundedRect(context, gearBox, 4, '#153247');
-    CanvasUtils.strokeRoundedRect(context, gearBox, 4, '#3a5362', 1);
-    context.fillStyle = '#f0c15b'; context.font = 'bold 16px sans-serif'; context.textAlign = 'center';
-    context.fillText('⚙', gearBox.x + gearBox.width / 2, gearBox.y + gearBox.height / 2 + 5);
-    this.inputManager.register('settings:gear', gearBox, () => this.toggleSettings());
+
     this.drawSettingsOverlay(context, viewport);
 
     this.scenes[this.activeSceneId].render(context, {
