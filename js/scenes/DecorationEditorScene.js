@@ -36,7 +36,8 @@ class DecorationEditorScene {
     this.gestureHandler = {
       onTouchStart: this.onTouchStart.bind(this),
       onTouchMove: this.onTouchMove.bind(this),
-      onTouchEnd: this.onTouchEnd.bind(this)
+      onTouchEnd: this.onTouchEnd.bind(this),
+      onTouchCancel: () => { this.gesture = null; }
     };
   }
 
@@ -223,9 +224,9 @@ class DecorationEditorScene {
     const state = this.gameState.snapshot();
     state.furniture = JSON.parse(JSON.stringify(this.draft.draftFurniture));
     state.player.cash = this.draft.draftCash;
-    state.cafe = Object.assign({}, state.cafe, this.ratingSystem.calculate(state.furniture));
-    this.gameState.replace(state);
-    this.saveManager.save(state);
+    const normalized = this.saveManager.normalize(state);
+    this.gameState.replace(normalized);
+    this.saveManager.save(normalized);
     this.draft.resetFromState(this.gameState.getState());
     if (exitAfter) this.exitToMain();
     else { this.draft.setToast('装修方案已保存'); this.requestRender(); }
@@ -276,7 +277,7 @@ class DecorationEditorScene {
       ['网格', true, () => { this.showGrid = !this.showGrid; this.requestRender(); }, this.showGrid],
       ['－', true, () => { this.camera.setZoom(this.camera.zoom - 0.15, this.mapBounds.x + this.mapBounds.width / 2, this.mapBounds.y + this.mapBounds.height / 2); this.requestRender(); }],
       ['＋', true, () => { this.camera.setZoom(this.camera.zoom + 0.15, this.mapBounds.x + this.mapBounds.width / 2, this.mapBounds.y + this.mapBounds.height / 2); this.requestRender(); }],
-      ['复位', true, () => { this.camera.fitToViewport(10); this.requestRender(); }]
+      ['复位', true, () => { this.camera.resetView(10); this.requestRender(); }]
     ];
     const actionW = 84;
     const available = box.width - actionW * 2 - 12;
@@ -373,7 +374,7 @@ class DecorationEditorScene {
     this.mapBounds = rect(safe.x, safe.y + topH, safe.width, safe.height - topH - bottomH);
     const firstLayout = this.camera.viewportRect.width <= 1;
     this.camera.setViewport(this.mapBounds);
-    if (firstLayout) this.camera.fitToViewport(10);
+    if (firstLayout) this.camera.fitToView(10);
     this.inputManager.clear();
     context.clearRect(0, 0, viewport.width, viewport.height);
     context.fillStyle = '#071522'; context.fillRect(0, 0, viewport.width, viewport.height);

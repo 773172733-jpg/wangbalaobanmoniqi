@@ -1,7 +1,7 @@
 'use strict';
 
 const initialState = {
-  saveVersion: 2,
+  saveVersion: 3,
   player: {
     level: 1,
     cash: 50000,
@@ -17,7 +17,9 @@ const initialState = {
     hygiene: 50,
     service: 50,
     environment: 50,
-    equipment: 50,
+    equipment: 0,
+    layoutEquipment: 0,
+    deviceEquipment: 0,
     comfort: 50,
     capacity: 0,
     overall: 50,
@@ -32,7 +34,7 @@ const initialState = {
   employees: {},
   customers: {},
   furniture: [],
-  devices: []
+  devices: {}
 };
 
 module.exports = initialState;

@@ -25,9 +25,10 @@ class MainScene {
       { id: 'finance', label: '财务' }
     ];
     this.bottomTabBar = new BottomTabBar(this.tabs);
+    const sceneDependencies = Object.assign({}, dependencies, { requestRender: () => this.render() });
     this.scenes = {
-      overview: new OverviewScene(this.assetManager),
-      device: new DeviceScene(),
+      overview: new OverviewScene(sceneDependencies),
+      device: new DeviceScene(sceneDependencies),
       employee: new EmployeeScene(),
       marketing: new MarketingScene(),
       finance: new FinanceScene()
@@ -35,11 +36,15 @@ class MainScene {
   }
 
   enter() {
+    const current = this.scenes[this.activeSceneId];
+    if (current && current.enter) current.enter();
     this.render();
   }
 
   switchScene(sceneId) {
     if (sceneId === 'decoration') {
+      const current = this.scenes[this.activeSceneId];
+      if (current && current.leave) current.leave();
       if (this.onOpenDecorationEditor) this.onOpenDecorationEditor();
       return;
     }
@@ -56,6 +61,8 @@ class MainScene {
   }
 
   forceSwitchScene(sceneId) {
+    const current = this.scenes[this.activeSceneId];
+    if (current && current.leave) current.leave();
     this.activeSceneId = sceneId;
     if (this.scenes[sceneId].enter) this.scenes[sceneId].enter();
     this.render();
@@ -68,9 +75,8 @@ class MainScene {
     const contentLeft = viewport.safeLeft;
     const contentWidth = viewport.width - viewport.safeLeft - viewport.safeRight;
     const topY = viewport.safeTop;
-    const compact = contentWidth < 720 || viewport.height < 390;
-    const topHeight = compact ? 56 : 66;
-    const navWidth = compact ? 82 : 104;
+    const topHeight = Math.max(52, Math.min(58, viewport.height * 0.135));
+    const navWidth = Math.max(80, Math.min(92, contentWidth * 0.105));
     const contentBottom = viewport.height - viewport.safeBottom;
 
     this.uiManager.beginFrame();

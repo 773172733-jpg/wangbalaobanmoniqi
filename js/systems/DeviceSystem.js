@@ -1,2 +1,211 @@
 'use strict';
-module.exports = class DeviceSystem { constructor(gameState) { this.gameState = gameState; } };
+
+const equipmentCatalog = require('../data/equipmentCatalog');
+const furnitureCatalog = require('../data/furnitureCatalog');
+
+function clamp(value, min, max) { return Math.max(min, Math.min(max, value)); }
+function integer(value, fallback) {
+  const parsed = Math.floor(Number(value));
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+class DeviceSystem {
+  constructor(gameState, saveManager) {
+    this.gameState = gameState || null;
+    this.saveManager = saveManager || null;
+    this.catalog = equipmentCatalog;
+    this.furnitureByType = {};
+    furnitureCatalog.forEach((item) => { this.furnitureByType[item.type] = item; });
+  }
+
+  defaultRecord() { return { owned: 0, installed: 0, level: 1, condition: 100 }; }
+
+  getRecord(devices, type) {
+    const source = devices && !Array.isArray(devices) ? devices[type] : null;
+    return Object.assign(this.defaultRecord(), source || {});
+  }
+
+  convertLegacyDevices(devices) {
+    if (!Array.isArray(devices)) return devices && typeof devices === 'object' ? devices : {};
+    const converted = {};
+    devices.forEach((entry) => {
+      if (!entry || !this.catalog.byType[entry.type]) return;
+      const current = converted[entry.type] || this.defaultRecord();
+      const amount = Math.max(1, integer(entry.owned, 1));
+      current.owned += amount;
+      current.installed += Math.max(0, integer(entry.installed, entry.isInstalled ? amount : 0));
+      current.level = Math.max(current.level, integer(entry.level, 1));
+      current.condition = Math.min(current.condition, Number(entry.condition) || 100);
+      converted[entry.type] = current;
+    });
+    return converted;
+  }
+
+  getComputerSlots(furniture) {
+    return (Array.isArray(furniture) ? furniture : []).reduce((total, item) => {
+      const config = item && this.furnitureByType[item.type];
+      return total + (config ? Math.max(0, integer(config.capacity, 0)) : 0);
+    }, 0);
+  }
+
+  sanitizeDevices(devices, furniture) {
+    const source = this.convertLegacyDevices(devices);
+    const normalized = {};
+    const warnings = [];
+    this.catalog.items.forEach((config) => {
+      const raw = source[config.type] || {};
+      const owned = Math.max(0, integer(raw.owned, 0));
+      const record = {
+        owned: owned,
+        installed: clamp(integer(raw.installed, 0), 0, owned),
+        level: clamp(integer(raw.level, 1), 1, config.maxLevel),
+        condition: clamp(Number.isFinite(Number(raw.condition)) ? Number(raw.condition) : 100, 0, 100)
+      };
+      normalized[config.type] = record;
+    });
+
+    const computerTypes = this.catalog.items.filter((item) => item.requiresComputerSlot).map((item) => item.type);
+    const slots = this.getComputerSlots(furniture);
+    let installed = computerTypes.reduce((total, type) => total + normalized[type].installed, 0);
+    if (installed > slots) {
+      let excess = installed - slots;
+      computerTypes.slice().reverse().forEach((type) => {
+        const removed = Math.min(excess, normalized[type].installed);
+        normalized[type].installed -= removed;
+        excess -= removed;
+      });
+      warnings.push('已安装电脑超过现有电脑位，已安全卸下 ' + (installed - slots) + ' 台。');
+    }
+    return { devices: normalized, warnings: warnings };
+  }
+
+  getInstalledComputers(devices) {
+    return this.catalog.items.reduce((total, config) => {
+      if (!config.requiresComputerSlot) return total;
+      return total + this.getRecord(devices, config.type).installed;
+    }, 0);
+  }
+
+  calculateScore(devices) {
+    const score = this.catalog.items.reduce((total, config) => {
+      const record = this.getRecord(devices, config.type);
+      const levelFactor = 1 + (record.level - 1) * 0.15;
+      return total + record.installed * config.score * levelFactor * (record.condition / 100);
+    }, 0);
+    return clamp(Math.round(score), 0, 100);
+  }
+
+  calculateAverageCondition(devices) {
+    let installed = 0;
+    let weighted = 0;
+    this.catalog.items.forEach((config) => {
+      const record = this.getRecord(devices, config.type);
+      installed += record.installed;
+      weighted += record.installed * record.condition;
+    });
+    return installed ? Math.round(weighted / installed) : 100;
+  }
+
+  calculateDailyElectricity(devices) {
+    const usage = this.catalog.items.reduce((total, config) => {
+      const record = this.getRecord(devices, config.type);
+      const levelPowerFactor = 1 + (record.level - 1) * 0.04;
+      return total + record.installed * config.powerUsage * levelPowerFactor;
+    }, 0);
+    return Math.round(usage * this.catalog.electricityPricePerUnit * 10) / 10;
+  }
+
+  getSummary(state) {
+    const slots = this.getComputerSlots(state.furniture);
+    const installedComputers = this.getInstalledComputers(state.devices);
+    return {
+      computerSlots: slots,
+      installedComputers: installedComputers,
+      freeComputerSlots: Math.max(0, slots - installedComputers),
+      equipmentScore: this.calculateScore(state.devices),
+      averageCondition: this.calculateAverageCondition(state.devices),
+      dailyElectricity: this.calculateDailyElectricity(state.devices)
+    };
+  }
+
+  commit(mutator) {
+    if (!this.gameState) return { ok: false, message: '设备系统尚未连接游戏状态。' };
+    const next = this.gameState.snapshot();
+    const sanitized = this.sanitizeDevices(next.devices, next.furniture);
+    next.devices = sanitized.devices;
+    const result = mutator(next);
+    if (!result.ok) return result;
+    const finalData = this.sanitizeDevices(next.devices, next.furniture);
+    next.devices = finalData.devices;
+    const committed = this.saveManager && this.saveManager.normalize ? this.saveManager.normalize(next) : next;
+    this.gameState.replace(committed);
+    if (this.saveManager) this.saveManager.save(committed);
+    return result;
+  }
+
+  purchase(type) {
+    const config = this.catalog.byType[type];
+    if (!config) return { ok: false, message: '未知设备类型。' };
+    return this.commit((state) => {
+      if (state.player.cash < config.purchasePrice) return { ok: false, message: '现金不足，无法购买该设备。' };
+      state.player.cash -= config.purchasePrice;
+      state.devices[type].owned += 1;
+      return { ok: true, message: '已购买一台' + config.name + '。' };
+    });
+  }
+
+  install(type) {
+    const config = this.catalog.byType[type];
+    if (!config) return { ok: false, message: '未知设备类型。' };
+    return this.commit((state) => {
+      const record = state.devices[type];
+      if (record.installed >= record.owned) return { ok: false, message: '没有可安装的库存设备。' };
+      if (config.requiresComputerSlot && this.getInstalledComputers(state.devices) >= this.getComputerSlots(state.furniture)) {
+        return { ok: false, message: '当前没有空闲电脑位，请先在装修页面增加电脑桌。' };
+      }
+      record.installed += 1;
+      return { ok: true, message: '设备已安装，不会重复扣款。' };
+    });
+  }
+
+  uninstall(type) {
+    if (!this.catalog.byType[type]) return { ok: false, message: '未知设备类型。' };
+    return this.commit((state) => {
+      const record = state.devices[type];
+      if (record.installed <= 0) return { ok: false, message: '当前没有已安装设备。' };
+      record.installed -= 1;
+      return { ok: true, message: '已卸下一台设备，库存数量不变。' };
+    });
+  }
+
+  upgrade(type) {
+    const config = this.catalog.byType[type];
+    if (!config) return { ok: false, message: '未知设备类型。' };
+    return this.commit((state) => {
+      const record = state.devices[type];
+      if (record.owned <= 0) return { ok: false, message: '请先购买该设备。' };
+      if (record.level >= config.maxLevel) return { ok: false, message: '已达到最高等级。' };
+      const cost = config.upgradeBasePrice * record.level;
+      if (state.player.cash < cost) return { ok: false, message: '现金不足，无法升级该设备。' };
+      state.player.cash -= cost;
+      record.level += 1;
+      return { ok: true, message: '设备已升级至 Lv.' + record.level + '。' };
+    });
+  }
+
+  repair(type) {
+    const config = this.catalog.byType[type];
+    if (!config) return { ok: false, message: '未知设备类型。' };
+    return this.commit((state) => {
+      const record = state.devices[type];
+      if (record.condition >= 100) return { ok: false, message: '设备状态良好，无需维修。' };
+      const cost = Math.ceil((100 - record.condition) * config.dailyMaintenance);
+      if (state.player.cash < cost) return { ok: false, message: '现金不足，无法维修该设备。' };
+      state.player.cash -= cost;
+      record.condition = 100;
+      return { ok: true, message: '设备维修完成。' };
+    });
+  }
+}
+
+module.exports = DeviceSystem;

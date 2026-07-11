@@ -11,6 +11,18 @@ function clamp(value) {
   return Math.max(0, Math.min(100, Math.round(value)));
 }
 
+function recomputeOverall(result) {
+  result.overall = clamp(
+    result.environment * 0.2 +
+    result.equipment * 0.3 +
+    result.service * 0.2 +
+    result.hygiene * 0.15 +
+    result.comfort * 0.15
+  );
+  result.satisfaction = result.overall;
+  return result;
+}
+
 class RatingSystem {
   constructor(baseRatings) {
     this.baseRatings = Object.assign({
@@ -47,15 +59,15 @@ class RatingSystem {
     result.service = clamp(result.service);
     result.hygiene = clamp(result.hygiene);
     result.comfort = clamp(result.comfort);
-    result.overall = clamp(
-      result.environment * 0.2 +
-      result.equipment * 0.3 +
-      result.service * 0.2 +
-      result.hygiene * 0.15 +
-      result.comfort * 0.15
-    );
-    result.satisfaction = result.overall;
-    return result;
+    return recomputeOverall(result);
+  }
+
+  combineDeviceRating(ratings, deviceScore) {
+    const result = Object.assign({}, ratings);
+    result.layoutEquipment = Math.max(0, (Number(ratings.equipment) || 0) - this.baseRatings.equipment);
+    result.deviceEquipment = clamp(Number(deviceScore) || 0);
+    result.equipment = clamp(result.layoutEquipment + result.deviceEquipment);
+    return recomputeOverall(result);
   }
 }
 

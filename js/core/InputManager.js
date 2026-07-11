@@ -7,9 +7,11 @@ class InputManager {
     this.boundStart = this.handleStart.bind(this);
     this.boundMove = this.handleMove.bind(this);
     this.boundEnd = this.handleEnd.bind(this);
+    this.boundCancel = this.handleCancel.bind(this);
     wx.onTouchStart(this.boundStart);
     wx.onTouchMove(this.boundMove);
     wx.onTouchEnd(this.boundEnd);
+    if (wx.onTouchCancel) wx.onTouchCancel(this.boundCancel);
   }
 
   clear() { this.regions.length = 0; }
@@ -42,10 +44,15 @@ class InputManager {
     }
   }
 
+  handleCancel(event) {
+    if (this.gestureHandler && this.gestureHandler.onTouchCancel) this.gestureHandler.onTouchCancel(event);
+  }
+
   destroy() {
     if (wx.offTouchStart) wx.offTouchStart(this.boundStart);
     if (wx.offTouchMove) wx.offTouchMove(this.boundMove);
     if (wx.offTouchEnd) wx.offTouchEnd(this.boundEnd);
+    if (wx.offTouchCancel) wx.offTouchCancel(this.boundCancel);
     this.gestureHandler = null;
     this.clear();
   }

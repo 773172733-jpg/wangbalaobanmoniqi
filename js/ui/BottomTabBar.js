@@ -27,7 +27,7 @@ class BottomTabBar {
         x: bounds.x + 7,
         y: bounds.y + titleHeight + index * tabHeight,
         width: bounds.width - 14,
-        height: tabHeight - 5,
+        height: Math.max(40, tabHeight - 5),
         label: tab.label,
         icon: ['⌂', '▦', '▣', '♟', '▥', '¥'][index],
         selected: tab.id === activeId,

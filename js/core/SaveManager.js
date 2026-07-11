@@ -1,11 +1,12 @@
 'use strict';
 
 const STORAGE_KEY = 'internetCafeOwnerSave';
-const CURRENT_VERSION = 2;
+const CURRENT_VERSION = 3;
 const furnitureCatalog = require('../data/furnitureCatalog');
 const GridMap = require('../map/GridMap');
 const FurnitureManager = require('../map/FurnitureManager');
 const RatingSystem = require('../systems/RatingSystem');
+const DeviceSystem = require('../systems/DeviceSystem');
 
 function clone(value) {
   return JSON.parse(JSON.stringify(value));
@@ -40,6 +41,7 @@ class SaveManager {
     this.gridMap = new GridMap();
     this.furnitureManager = new FurnitureManager(this.catalogByType, this.gridMap);
     this.ratingSystem = new RatingSystem();
+    this.deviceSystem = new DeviceSystem();
   }
 
   load() {
@@ -50,7 +52,7 @@ class SaveManager {
       if (!isPlainObject(parsed)) throw new Error('存档根节点不是对象');
       const migrated = this.normalize(this.migrate(parsed));
       console.log('[存档] 存档读取成功');
-      return mergeDefaults(this.defaultState, migrated);
+      return migrated;
     } catch (error) {
       console.warn('[存档] 存档解析失败，已恢复默认数据:', error.message);
       return this.createNew();
@@ -78,6 +80,7 @@ class SaveManager {
     const version = Number(savedData.saveVersion) || 1;
     let migrated = clone(savedData);
     if (version < 2) migrated = this.migrateV1ToV2(migrated);
+    if (version < 3) migrated = this.migrateV2ToV3(migrated);
     if (version > CURRENT_VERSION) {
       console.warn('[存档] 检测到更高版本存档，将使用兼容字段读取');
     }
@@ -94,11 +97,21 @@ class SaveManager {
     return data;
   }
 
+  migrateV2ToV3(data) {
+    if (data.devices === undefined || data.devices === null) data.devices = {};
+    return data;
+  }
+
   normalize(data) {
     const merged = mergeDefaults(this.defaultState, data);
     merged.saveVersion = CURRENT_VERSION;
     merged.furniture = this.furnitureManager.sanitize(merged.furniture);
-    const ratings = this.ratingSystem.calculate(merged.furniture);
+    merged.devices = this.deviceSystem.convertLegacyDevices(data && data.devices);
+    const normalizedDevices = this.deviceSystem.sanitizeDevices(merged.devices, merged.furniture);
+    merged.devices = normalizedDevices.devices;
+    normalizedDevices.warnings.forEach((message) => console.warn('[存档] ' + message));
+    const deviceScore = this.deviceSystem.calculateScore(merged.devices);
+    const ratings = this.ratingSystem.combineDeviceRating(this.ratingSystem.calculate(merged.furniture), deviceScore);
     merged.cafe = Object.assign({}, merged.cafe, ratings);
     return merged;
   }
