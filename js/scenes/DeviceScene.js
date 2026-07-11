@@ -170,7 +170,7 @@ class DeviceScene {
 
   drawSummary(context, box, summary) {
     const items = [
-      ['电脑位', summary.computerSlots], ['已安装', summary.installedComputers], ['空闲位', summary.freeComputerSlots],
+      ['电脑位', summary.computerSlots],
       ['设备评分', summary.equipmentScore], ['平均状态', summary.averageCondition + '%'], ['预计电费', '¥' + summary.dailyElectricity + '/日']
     ];
     const gap = 5;
