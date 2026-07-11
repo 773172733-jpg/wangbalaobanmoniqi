@@ -1,4 +1,4 @@
-'use strict';
+﻿'use strict';
 
 const CanvasUtils = require('../ui/CanvasUtils');
 const EmployeeSystem = require('../systems/EmployeeSystem');
@@ -108,12 +108,25 @@ class EmployeeScene {
       const card = rect(box.x + column * (cardWidth + gap), box.y + row * (cardHeight + gap), cardWidth, cardHeight);
       const q = quality(candidate.quality); const role = catalog.byType[candidate.type];
       CanvasUtils.fillRoundedRect(context, card, 5, '#122c3d'); CanvasUtils.strokeRoundedRect(context, card, 5, q.color, 1);
+      // 右侧头像预留区
+      const avatarSize = Math.min(card.height - 14, card.width * 0.35); const avatar = rect(card.x + card.width - avatarSize - 8, card.y + 7, avatarSize, avatarSize);
+      CanvasUtils.fillRoundedRect(context, avatar, 4, '#1a384e'); CanvasUtils.strokeRoundedRect(context, avatar, 4, '#2d5068', 1);
+      context.fillStyle = '#3a607a'; context.font = 'bold 10px sans-serif'; context.textAlign = 'center'; context.fillText('头像', avatar.x + avatar.width / 2, avatar.y + avatar.height / 2 + 3);
+      // 名字 + 职位
       context.fillStyle = '#f4f0df'; context.font = 'bold 12px sans-serif'; context.textAlign = 'left'; context.fillText(candidate.name, card.x + 9, card.y + 20);
-      context.fillStyle = q.color; context.font = 'bold 9px sans-serif'; context.textAlign = 'right'; context.fillText(q.name, card.x + card.width - 9, card.y + 20);
+      context.fillStyle = '#91a6b2'; context.font = '9px sans-serif'; context.fillText(role.name, card.x + 12 + context.measureText(candidate.name).width, card.y + 21);
+      // 品质 + 核心能力
+      context.fillStyle = q.color; context.font = 'bold 9px sans-serif'; context.textAlign = 'left'; context.fillText(q.name + ' · ' + role.name, card.x + 9, card.y + 36);
       const main = candidate.type === 'technician' || candidate.type === 'network_admin' ? '技术 ' + candidate.attributes.technology : (candidate.type === 'operator' ? '营销 ' + candidate.attributes.marketing : '服务 ' + candidate.attributes.service);
-      const lines = ['职位：' + role.name, '核心能力：' + main, '工资：¥' + candidate.salary + '/月', '技能：' + candidate.traits.join('、')];
-      lines.forEach((line, lineIndex) => { context.fillStyle = lineIndex === 2 ? '#e9ba52' : '#91a6b2'; context.font = '9px sans-serif'; context.textAlign = 'left'; context.fillText(line, card.x + 9, card.y + 42 + lineIndex * 17); });
-      this.button(context, 'employee:hire:' + candidate.id, rect(card.x + 8, card.y + card.height - 38, card.width - 16, 31), '招聘', true, () => this.act(() => this.system.hire(candidate.id)), false, true);
+      context.fillStyle = '#91a6b2'; context.font = '9px sans-serif'; context.fillText('核心：' + main, card.x + 9, card.y + 54);
+      // 小招聘按钮（核心能力右侧）
+      const hireBtn = rect(card.x + avatar.x - card.x - 58, card.y + 42, 50, 20);
+      CanvasUtils.fillRoundedRect(context, hireBtn, 3, '#a97022'); CanvasUtils.strokeRoundedRect(context, hireBtn, 3, '#efc45c', 1);
+      context.fillStyle = '#f5f0df'; context.font = 'bold 8px sans-serif'; context.textAlign = 'center'; context.fillText('招聘', hireBtn.x + hireBtn.width / 2, hireBtn.y + hireBtn.height / 2 + 3);
+      this.inputManager.register('employee:hire:' + candidate.id, hireBtn, () => this.act(() => this.system.hire(candidate.id)));
+      // 工资 + 技能
+      context.fillStyle = '#e9ba52'; context.font = '9px sans-serif'; context.textAlign = 'left'; context.fillText('工资 ¥' + candidate.salary + '/月', card.x + 9, card.y + 74);
+      context.fillStyle = '#91a6b2'; context.font = '9px sans-serif'; context.textAlign = 'left'; context.fillText(candidate.traits.join(' · '), card.x + 9, card.y + 91);
     });
   }
 
