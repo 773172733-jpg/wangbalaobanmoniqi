@@ -1,7 +1,7 @@
-'use strict';
+﻿'use strict';
 
 const STORAGE_KEY = 'internetCafeOwnerSave';
-const CURRENT_VERSION = 7;
+const CURRENT_VERSION = 8;
 const furnitureCatalog = require('../data/furnitureCatalog');
 const GridMap = require('../map/GridMap');
 const FurnitureManager = require('../map/FurnitureManager');
@@ -89,6 +89,7 @@ class SaveManager {
     if (version < 5) migrated = this.migrateV4ToV5(migrated);
     if (version < 6) migrated = this.migrateV5ToV6(migrated);
     if (version < 7) migrated = this.migrateV6ToV7(migrated);
+    if (version < 8) migrated = this.migrateV7ToV8(migrated);
     if (version > CURRENT_VERSION) {
       console.warn('[存档] 检测到更高版本存档，将使用兼容字段读取');
     }
@@ -136,6 +137,18 @@ class SaveManager {
     return data;
   }
 
+  migrateV7ToV8(data) {
+    const expansionConfig = require('../data/expansionConfig');
+    if (!isPlainObject(data.expansion)) {
+      data.expansion = {
+        level: 0,
+        currentArea: expansionConfig.baseArea,
+        baseArea: expansionConfig.baseArea,
+        history: []
+      };
+    }
+    return data;
+  }
   normalize(data) {
     const merged = mergeDefaults(this.defaultState, data);
     merged.saveVersion = CURRENT_VERSION;
@@ -154,6 +167,7 @@ class SaveManager {
     if (!isPlainObject(merged.cafe.pricing)) merged.cafe.pricing = { hourlyRate: 8 };
     merged.cafe.pricing.hourlyRate = Math.max(0, Number(merged.cafe.pricing.hourlyRate) || 8);
     if (!isPlainObject(merged.businessSimulation)) merged.businessSimulation = clone(this.defaultState.businessSimulation);
+    if (!isPlainObject(merged.expansion)) merged.expansion = clone(this.defaultState.expansion);
     merged.businessSimulation.lastProcessedHourKey = typeof merged.businessSimulation.lastProcessedHourKey === 'string' ? merged.businessSimulation.lastProcessedHourKey : null;
     merged.businessSimulation.currentDayKey = typeof merged.businessSimulation.currentDayKey === 'string' ? merged.businessSimulation.currentDayKey : null;
     merged.businessSimulation.activeCohorts = (Array.isArray(merged.businessSimulation.activeCohorts) ? merged.businessSimulation.activeCohorts : []).filter((item) => item && ['student', 'gamer', 'office_worker', 'streamer'].indexOf(item.segmentType) >= 0 && ['basic', 'gaming', 'premium'].indexOf(item.computerTier) >= 0 && Number(item.count) > 0 && Number(item.remainingHours) > 0).map((item) => ({ id: String(item.id || 'cohort_recovered'), segmentType: item.segmentType, computerTier: item.computerTier, count: Math.floor(Number(item.count)), remainingHours: Math.floor(Number(item.remainingHours)), hourlyRate: Math.max(0, Number(item.hourlyRate) || 8), satisfaction: Math.max(0, Math.min(100, Math.round(Number(item.satisfaction) || 50))) }));

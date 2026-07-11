@@ -1,10 +1,10 @@
-'use strict';
+﻿'use strict';
 
 const initialState = {
   saveVersion: 7,
   player: {
     level: 1,
-    cash: 50000,
+    cash: 5000000,
     reputation: 0
   },
   time: {
@@ -65,6 +65,12 @@ const initialState = {
     dailyHistory: []
   },
   customers: {},
+  expansion: {
+    level: 0,
+    currentArea: 10000,
+    baseArea: 10000,
+    history: []
+  },
   furniture: [],
   devices: {}
 };

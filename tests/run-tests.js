@@ -1,4 +1,4 @@
-'use strict';
+﻿'use strict';
 
 const assert = require('assert');
 const initialState = require('../js/data/initialState');
@@ -14,6 +14,8 @@ const FinanceSystem = require('../js/systems/FinanceSystem');
 const FinanceChartRenderer = require('../js/ui/charts/FinanceChartRenderer');
 const TimeManager = require('../js/core/TimeManager');
 const BusinessSimulationSystem = require('../js/systems/BusinessSimulationSystem');
+const ExpansionSystem = require('../js/systems/ExpansionSystem');
+const expansionConfig = require('../js/data/expansionConfig');
 const OperatingMetricsSystem = require('../js/systems/OperatingMetricsSystem');
 
 function clone(value) { return JSON.parse(JSON.stringify(value)); }
@@ -62,7 +64,7 @@ function testMigrationAndRecovery() {
   } });
   const manager = new SaveManager(initialState);
   const loaded = manager.load();
-  assert.strictEqual(loaded.saveVersion, 7);
+  assert.strictEqual(loaded.saveVersion, 8);
   assert.strictEqual(loaded.player.cash, 43210);
   assert.strictEqual(loaded.player.level, 4);
   assert.strictEqual(loaded.furniture.length, 1);
@@ -80,8 +82,8 @@ function testMigrationAndRecovery() {
 
   global.wx = createWx({ storage: '{broken-json' });
   const recovered = new SaveManager(initialState).load();
-  assert.strictEqual(recovered.saveVersion, 7);
-  assert.strictEqual(recovered.player.cash, 50000);
+  assert.strictEqual(recovered.saveVersion, 8);
+  assert.strictEqual(recovered.player.cash, initialState.player.cash);
   assert.ok(recovered.devices.basic_pc);
 }
 
@@ -107,7 +109,7 @@ function testBusinessSimulation() {
   assert.strictEqual(new FinanceSystem(empty.gameState, empty.saveManager).getTransactions({ category: 'seat_income' }).length, 0);
 
   const basic = simulationFixture({ basic: 5, router: true, ups: true }); const basicHistory = runSimulationDays(basic, 3); const basicTotals = basicHistory.reduce((sum, day) => ({ admitted: sum.admitted + day.admittedCustomers, revenue: sum.revenue + day.totalRevenue, occupancy: Math.max(sum.occupancy, day.peakOccupancy) }), { admitted: 0, revenue: 0, occupancy: 0 }); assert.ok(basicTotals.admitted > 0); assert.ok(basicTotals.revenue > 0); assert.ok(basicTotals.occupancy > 0); assert.ok(new FinanceSystem(basic.gameState, basic.saveManager).getTransactions({ category: 'seat_income' }).length > 0);
-  const basicFinance = new FinanceSystem(basic.gameState, basic.saveManager); const cashDelta = basicFinance.getTransactions({}).reduce((sum, item) => sum + (item.direction === 'income' ? item.amount : -item.amount), 0); assert.strictEqual(basicFinance.getCash(), 50000 + cashDelta);
+  const basicFinance = new FinanceSystem(basic.gameState, basic.saveManager); const cashDelta = basicFinance.getTransactions({}).reduce((sum, item) => sum + (item.direction === 'income' ? item.amount : -item.amount), 0); assert.strictEqual(basicFinance.getCash(), initialState.player.cash + cashDelta);
 
   const gaming = simulationFixture({ gaming: 5, router: true, ups: true }); const gamingHistory = runSimulationDays(gaming, 7); assert.ok(gamingHistory.reduce((sum, day) => sum + day.admittedBySegment.gamer, 0) > 0); assert.ok(gamingHistory.reduce((sum, day) => sum + day.servedSeatHours, 0) >= gamingHistory.reduce((sum, day) => sum + day.admittedCustomers, 0));
 
@@ -316,7 +318,7 @@ function testDeviceRules() {
   const system = new DeviceSystem(gameState, saveManager);
 
   assert.ok(system.purchase('basic_pc').ok);
-  assert.strictEqual(gameState.getState().player.cash, 47500);
+  assert.strictEqual(gameState.getState().player.cash, initialState.player.cash - 2500);
   assert.strictEqual(gameState.getState().finance.transactions.slice(-1)[0].category, 'equipment_purchase');
   const cashAfterPurchase = gameState.getState().player.cash;
   assert.ok(system.install('basic_pc').ok);
@@ -405,8 +407,124 @@ function testRuntimeAtSize(width, height, pixelRatio) {
   return overview.mapBounds.width * overview.mapBounds.height;
 }
 
+
+function testExpansion() {
+  global.wx = createWx();
+  const saveManager = new SaveManager(initialState);
+  const raw = clone(initialState);
+  raw.player.cash = 5000000;
+  const data = saveManager.normalize(raw);
+  const eventBus = new EventBus();
+  const gameState = new GameState(data, eventBus);
+  const expansion = new ExpansionSystem(gameState, saveManager);
+
+  // 1. New game has default expansion data
+  assert.strictEqual(expansion.getLevel(), 0);
+  assert.strictEqual(expansion.getCurrentArea(), expansionConfig.baseArea);
+  assert.strictEqual(expansion.getNextArea(), Math.round(expansionConfig.baseArea * (1 + expansionConfig.expansionRate)));
+  assert.strictEqual(expansion.getExpansionCost(), 20000);
+
+  // 2. First expansion: 10000 → 13000
+  let result = expansion.expand();
+  assert.ok(result.ok, 'First expansion should succeed');
+  assert.strictEqual(result.beforeArea, 10000);
+  assert.strictEqual(result.afterArea, 13000);
+  assert.strictEqual(result.level, 1);
+  assert.strictEqual(gameState.getState().expansion.level, 1);
+  assert.strictEqual(gameState.getState().expansion.currentArea, 13000);
+  assert.strictEqual(gameState.getState().expansion.history.length, 1);
+  gameState.getState().player.cash = 5000000;
+
+  // 3. Second: 13000 → 16900
+  result = expansion.expand();
+  assert.ok(result.ok, 'Second expansion should succeed');
+  assert.strictEqual(result.beforeArea, 13000);
+  assert.strictEqual(result.afterArea, 16900);
+  assert.strictEqual(result.level, 2);
+  gameState.getState().player.cash = 5000000;
+
+  // 4. Costs: 20000, 30000, 40000 (test separately)
+  let costTestData = clone(initialState);
+  costTestData.player.cash = 5000000;
+  let costState = new GameState(saveManager.normalize(costTestData), new EventBus());
+  let costExpansion = new ExpansionSystem(costState, saveManager);
+  assert.strictEqual(costExpansion.getExpansionCost(), 20000);
+  costExpansion.expand();
+  costState.getState().player.cash = 5000000;
+  assert.strictEqual(costExpansion.getExpansionCost(), 30000);
+  costExpansion.expand();
+  costState.getState().player.cash = 5000000;
+  assert.strictEqual(costExpansion.getExpansionCost(), 40000);
+
+  // 5. Can't expand without cash
+  let poorData = clone(initialState);
+  poorData.player.cash = 1000;
+  let poorState = new GameState(saveManager.normalize(poorData), new EventBus());
+  let poorExpansion = new ExpansionSystem(poorState, saveManager);
+  assert.ok(!poorExpansion.canExpand(), 'Should not be able to expand with insufficient cash');
+  let poorResult = poorExpansion.expand();
+  assert.ok(!poorResult.ok, 'Expansion should fail with insufficient cash');
+  assert.strictEqual(poorResult.reason, '资金不足，无法扩建。');
+
+  // 6. Successful expansion creates finance expansion record
+  assert.ok(gameState.getState().finance.transactions.some(
+    t => t.category === 'expansion' && t.sourceSystem === 'expansion'
+  ), 'Finance should have expansion transaction');
+
+  // 7. Re-enter game preserves data
+  saveManager.save(gameState.getState());
+  let reloaded = saveManager.load();
+  assert.strictEqual(reloaded.expansion.level, 2);
+  assert.strictEqual(reloaded.expansion.currentArea, 16900);
+  global.wx = createWx();
+
+  // 8. Old save loads correctly (no expansion field)
+  let oldData = clone(initialState);
+  delete oldData.expansion;
+  oldData.saveVersion = 6;
+  global.wx = createWx({ storage: oldData });
+  let oldManager = new SaveManager(initialState);
+  let migrated = oldManager.load();
+  assert.strictEqual(migrated.saveVersion, 8);
+  assert.ok(migrated.expansion, 'Old save should get expansion field');
+  assert.strictEqual(migrated.expansion.level, 0);
+  assert.strictEqual(migrated.expansion.currentArea, expansionConfig.baseArea);
+
+  // 9 & 10 & 11: Verify no side effects on unrelated systems
+  let cleanData = clone(initialState);
+  cleanData.player.cash = 5000000;
+  let cleanManager = new SaveManager(initialState);
+  let cleanNormalized = cleanManager.normalize(cleanData);
+  let cleanState = new GameState(cleanNormalized, new EventBus());
+  let cleanExpansion = new ExpansionSystem(cleanState, cleanManager);
+  let beforeFurniture = JSON.stringify(cleanState.getState().furniture);
+  let beforeDevices = JSON.stringify(cleanState.getState().devices);
+  let beforeEmployees = JSON.stringify(cleanState.getState().employees);
+  cleanState.getState().player.cash = 5000000;
+  cleanExpansion.expand();
+  assert.strictEqual(JSON.stringify(cleanState.getState().furniture), beforeFurniture, 'Furniture should not change');
+  assert.strictEqual(JSON.stringify(cleanState.getState().devices), beforeDevices, 'Devices should not change');
+  assert.strictEqual(JSON.stringify(cleanState.getState().employees), beforeEmployees, 'Employees should not change');
+
+  // Metrics & capacity
+  let metrics = cleanExpansion.getMetrics();
+  assert.ok(metrics.level >= 0);
+  assert.ok(metrics.currentArea > 0);
+  assert.ok(metrics.nextArea > metrics.currentArea);
+  assert.ok(metrics.cost > 0);
+  let capacity = cleanExpansion.getBuildCapacity();
+  assert.ok(capacity.area > 0);
+  assert.ok(capacity.buildableTiles > 0);
+  let dims = cleanExpansion.getMapDimensions();
+  assert.ok(dims.columns > 0);
+  assert.ok(dims.rows > 0);
+  assert.ok(dims.worldWidth > 0);
+  assert.ok(dims.worldHeight > 0);
+}
+
 function run() {
   testMigrationAndRecovery();
+  testExpansion();
   testDeviceRules();
   testEmployeeRules();
   testMarketingRules();

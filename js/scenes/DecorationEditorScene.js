@@ -1,4 +1,4 @@
-'use strict';
+﻿'use strict';
 
 const CanvasUtils = require('../ui/CanvasUtils');
 const Camera2D = require('../map/Camera2D');
@@ -9,6 +9,7 @@ const DecorationDraft = require('../systems/DecorationDraft');
 const RatingSystem = require('../systems/RatingSystem');
 const catalog = require('../data/furnitureCatalog');
 const FinanceSystem = require('../systems/FinanceSystem');
+const ExpansionSystem = require('../systems/ExpansionSystem');
 
 function rect(x, y, width, height) { return { x, y, width, height }; }
 function inside(point, box) { return point && point.x >= box.x && point.x <= box.x + box.width && point.y >= box.y && point.y <= box.y + box.height; }
@@ -24,11 +25,13 @@ class DecorationEditorScene {
     this.catalogByType = RatingSystem.catalogByType;
     this.furnitureManager = new FurnitureManager(this.catalogByType, this.gridMap);
     this.financeSystem = new FinanceSystem(this.gameState, this.saveManager);
+    this.expansionSystem = new ExpansionSystem(this.gameState, this.saveManager);
     this.renderer = new DecorationRenderer(this.assetManager, this.gridMap);
     this.camera = new Camera2D({ worldWidth: this.gridMap.columns * this.cellSize, worldHeight: this.gridMap.rows * this.cellSize });
     this.draft = null;
     this.drawerOpen = false;
     this.detailOpen = false;
+    this.expansionOpen = false;
     this.category = '全部';
     this.catalogScroll = 0;
     this.showGrid = true;
@@ -47,6 +50,7 @@ class DecorationEditorScene {
     this.draft = new DecorationDraft(this.gameState.getState(), this.ratingSystem);
     this.drawerOpen = false;
     this.detailOpen = false;
+    this.expansionOpen = false;
     this.gesture = null;
     this.inputManager.setGestureHandler(this.gestureHandler);
     catalog.forEach((item) => {
@@ -153,7 +157,8 @@ class DecorationEditorScene {
     else {
       const item = this.findFurnitureAt(grid);
       if (item) { this.draft.selectFurniture(item.id); this.detailOpen = true; }
-      else { this.draft.selectedFurnitureId = null; this.detailOpen = false; }
+      else { this.draft.selectedFurnitureId = null; this.detailOpen = false;
+    this.expansionOpen = false; }
     }
     this.requestRender();
   }
@@ -219,6 +224,7 @@ class DecorationEditorScene {
         this.draft.financeEntries.push({ direction: 'income', category: 'asset_sale_refund', amount: refund, sourceSystem: 'decoration', sourceId: item.id, description: '出售' + config.name });
         this.draft.selectedFurnitureId = null;
         this.detailOpen = false;
+    this.expansionOpen = false;
         this.draft.markDirty();
       } }
     ]);
@@ -325,12 +331,14 @@ class DecorationEditorScene {
     if (!this.detailOpen) return;
     const selected = this.furnitureManager.find(this.draft.draftFurniture, this.draft.selectedFurnitureId);
     const config = selected ? this.catalogByType[selected.type] : this.catalogByType[this.draft.selectedCatalogType];
-    if (!config) { this.detailOpen = false; return; }
+    if (!config) { this.detailOpen = false;
+    this.expansionOpen = false; return; }
     const width = Math.max(184, Math.min(view.width * 0.25, 230));
     const box = rect(view.x + view.width - width - 8, view.y + 8, width, Math.min(view.height - 16, 270));
     CanvasUtils.fillRoundedRect(context, box, 7, '#0d2232'); CanvasUtils.strokeRoundedRect(context, box, 7, '#486273', 1);
     context.fillStyle = '#f3d47d'; context.font = 'bold 13px sans-serif'; context.textAlign = 'left'; context.fillText(config.name, box.x + 12, box.y + 22);
-    this.button(context, 'detail:close', rect(box.x + box.width - 46, box.y + 2, 40, 40), '×', true, () => { this.detailOpen = false; this.requestRender(); });
+    this.button(context, 'detail:close', rect(box.x + box.width - 46, box.y + 2, 40, 40), '×', true, () => { this.detailOpen = false;
+    this.expansionOpen = false; this.requestRender(); });
     const refund = Math.floor(config.price * config.refundRate);
     const rating = this.draft.cachedRatings;
     const rows = [
@@ -343,6 +351,61 @@ class DecorationEditorScene {
       context.fillStyle = '#89a0ae'; context.font = '10px sans-serif'; context.textAlign = 'left'; context.fillText(row[0], box.x + 12, y);
       context.fillStyle = index >= 5 ? '#f0c15b' : '#eef2e8'; context.textAlign = 'right'; context.fillText(row[1], box.x + box.width - 12, y);
     });
+  }
+
+
+  drawExpansion(context, view) {
+    const expanded = this.expansionOpen;
+    const metrics = this.expansionSystem.getMetrics();
+    const width = expanded ? Math.max(210, Math.min(view.width * 0.35, 280)) : 116;
+    const height = expanded ? 196 : 32;
+    const box = rect(view.x + view.width - width - 8, view.y + view.height - 106, width, height);
+    CanvasUtils.fillRoundedRect(context, box, 7, '#0d2232');
+    CanvasUtils.strokeRoundedRect(context, box, 7, '#d3a845', 1);
+    context.fillStyle = '#f3d47d'; context.font = 'bold 12px sans-serif'; context.textAlign = 'left';
+    context.fillText('空间扩建', box.x + 10, box.y + 20);
+    const toggleLabel = expanded ? '收起' : '展开';
+    this.button(context, 'expansion:toggle', rect(box.x + box.width - 46, box.y + 2, 40, 26), toggleLabel, true, () => {
+      this.expansionOpen = !this.expansionOpen;
+      this.requestRender();
+    });
+    if (!expanded) return;
+    const rows = [
+      ['当前面积', metrics.currentArea.toLocaleString() + '㎡'],
+      ['扩建等级', 'Lv' + metrics.level],
+      ['下次增加', '+' + (metrics.nextArea - metrics.currentArea).toLocaleString() + '㎡'],
+      ['扩建费用', FinanceSystem.formatMoney(metrics.cost)]
+    ];
+    rows.forEach((row, index) => {
+      const y = box.y + 42 + index * 27;
+      context.fillStyle = '#89a0ae'; context.font = '11px sans-serif'; context.textAlign = 'left';
+      context.fillText(row[0], box.x + 12, y);
+      context.fillStyle = '#eef2e8'; context.textAlign = 'right';
+      context.fillText(row[1], box.x + box.width - 12, y);
+    });
+    const canExpand = this.expansionSystem.canExpand();
+    this.button(context, 'expansion:expand', rect(box.x + 16, box.y + height - 38, box.width - 32, 30),
+      canExpand ? '立即扩建' : '资金不足',
+      true, () => {
+        if (!canExpand) return;
+        const result = this.expansionSystem.expand();
+        if (result.ok) {
+          this.draft = new DecorationDraft(this.gameState.getState(), this.ratingSystem);
+          this.saveManager.save(this.gameState.getState());
+          this.expansionOpen = false;
+          this.showToast('网吧面积扩大成功！面积: ' + result.afterArea.toLocaleString() + '㎡');
+        }
+        this.requestRender();
+      }, false, canExpand);
+    if (!canExpand) {
+      context.fillStyle = '#d93b3b'; context.font = '9px sans-serif'; context.textAlign = 'center';
+      context.fillText('现金不足，无法扩建', box.x + box.width / 2, box.y + height - 8);
+    }
+  }
+
+  showToast(message) {
+    this.toastMessage = message;
+    this.toastTimer = Date.now();
   }
 
   drawConfirm(context, full) {
@@ -385,8 +448,11 @@ class DecorationEditorScene {
     this.drawToolbar(context, rect(safe.x, safe.y + safe.height - bottomH, safe.width, bottomH));
     this.drawDrawer(context, this.mapBounds);
     this.drawDetails(context, this.mapBounds);
-    const toast = this.draft.getToast();
+    const draftToast = this.draft.getToast();
+    const toast = this.toastMessage ? (Date.now() - this.toastTimer < 2500 ? this.toastMessage : null) : draftToast;
+    if (!toast && this.toastMessage && Date.now() - this.toastTimer >= 2500) this.toastMessage = null;
     if (toast) { const box = rect(safe.x + safe.width / 2 - 130, safe.y + safe.height - bottomH - 42, 260, 32); CanvasUtils.fillRoundedRect(context, box, 6, 'rgba(5,15,22,0.9)'); context.fillStyle = '#fff3cf'; context.font = '11px sans-serif'; context.textAlign = 'center'; context.fillText(toast, box.x + box.width / 2, box.y + 21); }
+    this.drawExpansion(context, this.mapBounds);
     this.drawConfirm(context, full);
   }
 }
