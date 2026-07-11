@@ -2,7 +2,6 @@
 
 module.exports = {
   DEBUG_BUSINESS_SIMULATION: false,
-  DEBUG_SAVE_RESET: true,
   millisecondsPerGameHour: 15000,
   daysPerMonth: 30,
   monthsPerYear: 12,

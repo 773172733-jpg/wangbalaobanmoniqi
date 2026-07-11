@@ -33,7 +33,7 @@ class DecorationEditorScene {
     this.draft = null;
     this.drawerOpen = false;
     this.detailOpen = false;
-    this.expansionOpen = false;
+    
     this.category = '全部';
     this.catalogScroll = 0;
     this.showGrid = true;
@@ -52,7 +52,7 @@ class DecorationEditorScene {
     this.draft = new DecorationDraft(this.gameState.getState(), this.ratingSystem);
     this.drawerOpen = false;
     this.detailOpen = false;
-    this.expansionOpen = false;
+    
     this.gesture = null;
     if (this.gameState && this.gameState.eventBus) {
       if (this._unsubMapExpanded) this._unsubMapExpanded();
@@ -167,7 +167,7 @@ class DecorationEditorScene {
       const item = this.findFurnitureAt(grid);
       if (item) { this.draft.selectFurniture(item.id); this.detailOpen = true; }
       else { this.draft.selectedFurnitureId = null; this.detailOpen = false;
-    this.expansionOpen = false; }
+    }
     }
     this.requestRender();
   }
@@ -233,7 +233,7 @@ class DecorationEditorScene {
         this.draft.financeEntries.push({ direction: 'income', category: 'asset_sale_refund', amount: refund, sourceSystem: 'decoration', sourceId: item.id, description: '出售' + config.name });
         this.draft.selectedFurnitureId = null;
         this.detailOpen = false;
-    this.expansionOpen = false;
+    
         this.draft.markDirty();
       } }
     ]);
@@ -341,13 +341,13 @@ class DecorationEditorScene {
     const selected = this.furnitureManager.find(this.draft.draftFurniture, this.draft.selectedFurnitureId);
     const config = selected ? this.catalogByType[selected.type] : this.catalogByType[this.draft.selectedCatalogType];
     if (!config) { this.detailOpen = false;
-    this.expansionOpen = false; return; }
+ return; }
     const width = Math.max(184, Math.min(view.width * 0.25, 230));
     const box = rect(view.x + view.width - width - 8, view.y + 8, width, Math.min(view.height - 16, 270));
     CanvasUtils.fillRoundedRect(context, box, 7, '#0d2232'); CanvasUtils.strokeRoundedRect(context, box, 7, '#486273', 1);
     context.fillStyle = '#f3d47d'; context.font = 'bold 13px sans-serif'; context.textAlign = 'left'; context.fillText(config.name, box.x + 12, box.y + 22);
     this.button(context, 'detail:close', rect(box.x + box.width - 46, box.y + 2, 40, 40), '×', true, () => { this.detailOpen = false;
-    this.expansionOpen = false; this.requestRender(); });
+ this.requestRender(); });
     const refund = Math.floor(config.price * config.refundRate);
     const rating = this.draft.cachedRatings;
     const rows = [
@@ -363,22 +363,11 @@ class DecorationEditorScene {
   }
 
 
-  drawExpansion(context, view) {
-    const expanded = this.expansionOpen;
+  drawExpansionInDrawer(context, box) {
     const metrics = this.expansionSystem.getMetrics();
-    const width = expanded ? Math.max(210, Math.min(view.width * 0.35, 280)) : 116;
-    const height = expanded ? 196 : 32;
-    const box = rect(view.x + view.width - width - 8, view.y + view.height - 106, width, height);
-    CanvasUtils.fillRoundedRect(context, box, 7, '#0d2232');
-    CanvasUtils.strokeRoundedRect(context, box, 7, '#d3a845', 1);
+    const canExpand = this.expansionSystem.canExpand();
     context.fillStyle = '#f3d47d'; context.font = 'bold 12px sans-serif'; context.textAlign = 'left';
-    context.fillText('空间扩建', box.x + 10, box.y + 20);
-    const toggleLabel = expanded ? '收起' : '展开';
-    this.button(context, 'expansion:toggle', rect(box.x + box.width - 46, box.y + 2, 40, 26), toggleLabel, true, () => {
-      this.expansionOpen = !this.expansionOpen;
-      this.requestRender();
-    });
-    if (!expanded) return;
+    context.fillText('网吧空间管理', box.x + 4, box.y + 20);
     const rows = [
       ['当前面积', metrics.currentArea.toLocaleString() + '㎡'],
       ['扩建等级', 'Lv' + metrics.level],
@@ -386,14 +375,15 @@ class DecorationEditorScene {
       ['扩建费用', FinanceSystem.formatMoney(metrics.cost)]
     ];
     rows.forEach((row, index) => {
-      const y = box.y + 42 + index * 27;
+      const y = box.y + 44 + index * 27;
+      CanvasUtils.fillRoundedRect(context, { x: box.x + 6, y: y, width: box.width - 12, height: 24 }, 4, '#102737');
       context.fillStyle = '#89a0ae'; context.font = '11px sans-serif'; context.textAlign = 'left';
-      context.fillText(row[0], box.x + 12, y);
+      context.fillText(row[0], box.x + 14, y + 16);
       context.fillStyle = '#eef2e8'; context.textAlign = 'right';
-      context.fillText(row[1], box.x + box.width - 12, y);
+      context.fillText(row[1], box.x + box.width - 14, y + 16);
     });
-    const canExpand = this.expansionSystem.canExpand();
-    this.button(context, 'expansion:expand', rect(box.x + 16, box.y + height - 38, box.width - 32, 30),
+    const btnY = box.y + 160;
+    this.button(context, 'expansion:expand', rect(box.x + 16, btnY, box.width - 32, 34),
       canExpand ? '立即扩建' : '资金不足',
       true, () => {
         if (!canExpand) return;
@@ -401,14 +391,13 @@ class DecorationEditorScene {
         if (result.ok) {
           this.draft = new DecorationDraft(this.gameState.getState(), this.ratingSystem);
           this.saveManager.save(this.gameState.getState());
-          this.expansionOpen = false;
           this.showToast('网吧面积扩大成功！面积: ' + result.afterArea.toLocaleString() + '㎡');
         }
         this.requestRender();
       }, false, canExpand);
     if (!canExpand) {
-      context.fillStyle = '#d93b3b'; context.font = '9px sans-serif'; context.textAlign = 'center';
-      context.fillText('现金不足，无法扩建', box.x + box.width / 2, box.y + height - 8);
+      context.fillStyle = '#d93b3b'; context.font = '10px sans-serif'; context.textAlign = 'center';
+      context.fillText('现金不足，无法扩建', box.x + box.width / 2, btnY + 46);
     }
   }
 
