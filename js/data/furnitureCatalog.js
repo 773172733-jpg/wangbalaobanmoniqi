@@ -101,7 +101,7 @@ module.exports = [
     visual: Object.assign(visual({ body: '#7a4a2a', accent: '#e0a84d' }), {
       spriteKey: 'bar_counter',
       spritePath: 'assets/textures/furniture/bar_counter_01.png',
-      renderScale: 4
+      renderScale: 12
     })
   },
   {
