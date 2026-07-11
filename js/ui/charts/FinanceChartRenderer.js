@@ -1,4 +1,4 @@
-'use strict';
+﻿'use strict';
 
 const FinanceSystem = require('../../systems/FinanceSystem');
 
@@ -35,7 +35,7 @@ class FinanceChartRenderer {
     if (!total) { context.fillStyle = '#718794'; context.font = '9px sans-serif'; context.textAlign = 'center'; context.fillText('本月暂无记录', box.x + box.width / 2, box.y + box.height / 2); return []; }
     const radius = Math.min(box.height * 0.34, box.width * 0.19); const center = { x: box.x + radius + 12, y: box.y + box.height / 2 }; let start = -Math.PI / 2;
     const slices = items.map((item, index) => { const end = start + item.value / total * Math.PI * 2; context.fillStyle = COLORS[index % COLORS.length]; context.beginPath(); context.moveTo(center.x, center.y); context.arc(center.x, center.y, item.id === selectedId ? radius + 3 : radius, start, end); context.closePath(); context.fill(); const result = { id: item.id, value: item.value, start: start, end: end, center: center, radius: radius }; start = end; return result; });
-    items.forEach((item, index) => { const y = box.y + 15 + index * 17; context.fillStyle = COLORS[index % COLORS.length]; context.fillRect(box.x + radius * 2 + 24, y - 7, 7, 7); context.fillStyle = '#a8b8c1'; context.font = '8px sans-serif'; context.textAlign = 'left'; const name = item.id === 'other' ? '其他' : (labels[item.id] || item.id); context.fillText(name + ' ' + Math.round(item.value / total * 100) + '% · ' + compact(item.value), box.x + radius * 2 + 35, y); });
+    items.forEach((item, index) => { const y = box.y + 10 + index * 14; context.fillStyle = COLORS[index % COLORS.length]; context.fillRect(box.x + radius * 2 + 20, y - 5, 6, 6); context.fillStyle = '#a8b8c1'; context.font = '8px sans-serif'; context.textAlign = 'left'; const name = item.id === 'other' ? '其他' : (labels[item.id] || item.id); context.font = '7px sans-serif'; context.fillText(name + ' ' + Math.round(item.value / total * 100) + '%', box.x + radius * 2 + 30, y); });
     return slices;
   }
 

@@ -33,12 +33,12 @@ class FinanceScene {
   }
 
   drawOverview(context, box, state, summary) {
-    const leftWidth = box.width * 0.52; const trend = rect(box.x, box.y, leftWidth, box.height * 0.58);
+    const leftWidth = box.width * 0.45; const trend = rect(box.x, box.y, leftWidth, box.height * 0.58);
     ['income', 'expense', 'net'].forEach((metric, index) => this.button(context, 'finance:metric:' + metric, rect(trend.x + trend.width - 126 + index * 42, trend.y + 3, 39, 24), metric === 'income' ? '收入' : metric === 'expense' ? '支出' : '净流量', true, () => { this.metric = metric; this.requestRender(); }, this.metric === metric));
     const hits = this.chart.drawTrend(context, trend, summary.daily, this.metric, this.selectedDay); hits.forEach((hit) => this.inputManager.register('finance:day:' + hit.day, hit.bounds, () => { this.selectedDay = hit.day; this.requestRender(); }));
     if (this.selectedDay) { const day = summary.daily[this.selectedDay - 1]; const tip = rect(trend.x + 40, trend.y + 26, 148, 34); CanvasUtils.fillRoundedRect(context, tip, 4, '#071522'); context.fillStyle = '#e8d9ae'; context.font = '8px sans-serif'; context.textAlign = 'left'; context.fillText('第' + day.day + '日  收 ' + this.money(day.income) + '  支 ' + this.money(day.expense) + '  净 ' + this.money(day.net), tip.x + 6, tip.y + 20); }
     const labels = {}; categories.items.forEach((item) => { labels[item.id] = item.name; });
-    const incomeBox = rect(box.x + leftWidth + 6, box.y, (box.width - leftWidth - 12) / 2, trend.height); const expenseBox = rect(incomeBox.x + incomeBox.width + 6, box.y, incomeBox.width, trend.height);
+    const incomeBox = rect(box.x + leftWidth + 4, box.y, (box.width - leftWidth - 8) / 2, trend.height); const expenseBox = rect(incomeBox.x + incomeBox.width + 4, box.y, incomeBox.width, trend.height);
     const incomeSlices = this.chart.drawPie(context, incomeBox, summary.incomeBreakdown, labels, this.selectedPie); const expenseSlices = this.chart.drawPie(context, expenseBox, summary.expenseBreakdown, labels, this.selectedPie);
     this.inputManager.register('finance:pie:income', incomeBox, (point) => { const hit = this.chart.hitPie(point, incomeSlices); this.selectedPie = hit && hit.id; this.requestRender(); });
     this.inputManager.register('finance:pie:expense', expenseBox, (point) => { const hit = this.chart.hitPie(point, expenseSlices); this.selectedPie = hit && hit.id; this.requestRender(); });
