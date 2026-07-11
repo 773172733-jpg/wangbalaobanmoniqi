@@ -192,9 +192,10 @@ class DecorationRenderer {
   getWallConfigs() {
     if (this._wallConfigs) return this._wallConfigs;
     this._wallConfigs = {
-      wall_horizontal: { spriteKey: "wall_horizontal", spritePath: "assets/textures/wall/wall_horizontal_01.png", renderScale: 0.12 },
-      wall_vertical: { spriteKey: "wall_vertical", spritePath: "assets/textures/wall/wall_vertical_01.png", renderScale: 0.12 },
-      wall_corner: { spriteKey: "wall_corner", spritePath: "assets/textures/wall/wall_corner_L_01.png", renderScale: 0.10 }
+      WALL_DEPTH_CELLS: 1,
+      wall_horizontal: { spriteKey: "wall_horizontal", spritePath: "assets/textures/wall/wall_horizontal_01.png" },
+      wall_vertical: { spriteKey: "wall_vertical", spritePath: "assets/textures/wall/wall_vertical_01.png" },
+      wall_corner: { spriteKey: "wall_corner", spritePath: "assets/textures/wall/wall_corner_L_01.png" }
     };
     return this._wallConfigs;
   }
@@ -204,48 +205,70 @@ class DecorationRenderer {
     var configs = this.getWallConfigs();
     var self = this;
     var cell = cellSize || 40;
-    // 先画转角(底层)，再画横竖墙(上层)
-    var corners = walls.filter(function(w) { return w.type === "wall_corner"; });
-    var edges = walls.filter(function(w) { return w.type !== "wall_corner"; });
+    var depthCells = configs.WALL_DEPTH_CELLS || 1;
+    var wallDepth = cell * depthCells;
+    var worldWidth = this.gridMap.columns * cell;
+    var worldHeight = this.gridMap.rows * cell;
+
+    function worldRectToScreen(worldRect) {
+      var p1 = camera.worldToScreen(worldRect.x, worldRect.y);
+      var p2 = camera.worldToScreen(worldRect.x + worldRect.width, worldRect.y + worldRect.height);
+      var sx = Math.round(p1.x);
+      var sy = Math.round(p1.y);
+      return { x: sx, y: sy, width: Math.round(p2.x) - sx, height: Math.round(p2.y) - sy };
+    }
+
+    function getWorldRect(wall) {
+      if (wall.type === 'wall_horizontal') {
+        if (wall.side === 'top') return { x: wall.index * cell, y: -wallDepth, width: cell, height: wallDepth };
+        return { x: wall.index * cell, y: worldHeight, width: cell, height: wallDepth };
+      }
+      if (wall.type === 'wall_vertical') {
+        if (wall.side === 'left') return { x: -wallDepth, y: wall.index * cell, width: wallDepth, height: cell };
+        return { x: worldWidth, y: wall.index * cell, width: wallDepth, height: cell };
+      }
+      if (wall.type === 'wall_corner') {
+        if (wall.corner === 'topLeft') return { x: -wallDepth, y: -wallDepth, width: wallDepth, height: wallDepth };
+        if (wall.corner === 'topRight') return { x: worldWidth, y: -wallDepth, width: wallDepth, height: wallDepth };
+        if (wall.corner === 'bottomLeft') return { x: -wallDepth, y: worldHeight, width: wallDepth, height: wallDepth };
+        if (wall.corner === 'bottomRight') return { x: worldWidth, y: worldHeight, width: wallDepth, height: wallDepth };
+      }
+      return null;
+    }
+
+    var corners = [];
+    var edges = [];
+    for (var i = 0; i < walls.length; i++) {
+      (walls[i].type === 'wall_corner' ? corners : edges).push(walls[i]);
+    }
+
     function drawOne(wall) {
       var cfg = configs[wall.type];
       if (!cfg) return;
       var image = self.assetManager ? self.assetManager.getImage(cfg.spriteKey) : null;
-      var p = camera.worldToScreen(wall.gridX * cell, wall.gridY * cell);
+      var worldRect = getWorldRect(wall);
+      if (!worldRect) return;
+      var sr = worldRectToScreen(worldRect);
       if (image && image.width && image.height) {
         context.save();
         context.imageSmoothingEnabled = false;
-        // 使用原图比例，以格子大小为准缩放
-        var s = (cfg.renderScale || 1) * camera.zoom;
-        var dw = Math.round(image.width * s);
-        var dh = Math.round(image.height * s);
-        var cx = Math.round(p.x + cell * camera.zoom / 2);
-        var cy = Math.round(p.y + cell * camera.zoom / 2);
-        context.translate(cx, cy);
-        var sx = wall.flipH ? -1 : 1;
-        var sy = wall.flipV ? -1 : 1;
-        context.scale(sx, sy);
-        context.rotate((wall.rotation || 0) * Math.PI / 180);
-        // 转角微调偏移，使L型拐点对齐墙体
-        var cox = 0, coy = 0;
-        if (wall.type === "wall_corner") {
-          var rot = (wall.rotation || 0) % 360;
-          var gs = Math.round(cell * camera.zoom);
-          if (rot === 0)   { cox = Math.round(gs * 0.25); coy = Math.round(gs * 0.25); }
-          if (rot === 90)  { cox = Math.round(-gs * 0.25); coy = Math.round(gs * 0.25); }
-          if (rot === 180) { cox = Math.round(-gs * 0.25); coy = Math.round(-gs * 0.25); }
-          if (rot === 270) { cox = Math.round(gs * 0.25); coy = Math.round(-gs * 0.25); }
+        if (wall.type === 'wall_corner') {
+          context.translate(sr.x + sr.width / 2, sr.y + sr.height / 2);
+          context.scale(wall.flipH ? -1 : 1, wall.flipV ? -1 : 1);
+          context.drawImage(image, -sr.width / 2, -sr.height / 2, sr.width, sr.height);
+        } else {
+          context.drawImage(image, sr.x, sr.y, sr.width, sr.height);
         }
-        context.drawImage(image, Math.round(-dw / 2 + cox), Math.round(-dh / 2 + coy), dw, dh);
         context.restore();
       } else {
-        var s = Math.round(cell * camera.zoom);
-        context.fillStyle = wall.type === "wall_corner" ? "#5c4a3a" : "#4a3c2f";
-        context.fillRect(Math.round(p.x), Math.round(p.y), s, s);
+        context.fillStyle = wall.type === 'wall_corner' ? '#5c4a3a' : '#4a3c2f';
+        context.fillRect(sr.x, sr.y, sr.width, sr.height);
       }
     }
-    corners.forEach(drawOne);
+
+    // Draw edges first, corners last (on top to cover seams)
     edges.forEach(drawOne);
+    corners.forEach(drawOne);
   }
 
   drawViewport(context, camera, furniture, options) {
