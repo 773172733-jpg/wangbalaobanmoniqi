@@ -19,12 +19,26 @@ class EmployeeScene {
     this.selectedId = null;
     this.toast = '';
     this.scrollOffset = 0;
+    this._gestureStartY = 0;
+    this._gestureStartOffset = 0;
+    this.gestureHandler = {
+      onTouchStart: this.onTouchStart.bind(this),
+      onTouchMove: this.onTouchMove.bind(this),
+      onTouchEnd: this.onTouchEnd.bind(this)
+    };
   }
 
   enter() {
     this.system.ensureMarket(false);
     const employees = this.system.employees();
     if (!this.selectedId && employees.length) this.selectedId = employees[0].id;
+    this.scrollOffset = 0;
+    this._isDragging = false;
+    if (this.inputManager) this.inputManager.setGestureHandler(this.gestureHandler);
+  }
+
+  leave() {
+    if (this.inputManager) this.inputManager.clearGestureHandler(this.gestureHandler);
   }
 
   button(context, id, box, label, enabled, action, selected, gold) {
@@ -43,6 +57,35 @@ class EmployeeScene {
       if (!employees.some((item) => item.id === this.selectedId)) this.selectedId = employees[0] && employees[0].id;
     }
     this.requestRender();
+  }
+
+
+  onTouchStart(event) {
+    if (this.tab !== 'mine') return;
+    const touches = event.touches || [];
+    if (!touches.length) return;
+    this._gestureStartY = touches[0].clientY;
+    this._gestureStartOffset = this.scrollOffset || 0;
+    this._isDragging = false;
+  }
+
+  onTouchMove(event) {
+    if (this.tab !== 'mine') return;
+    const touches = event.touches || [];
+    if (!touches.length) return;
+    const point = { x: touches[0].clientX, y: touches[0].clientY };
+    if (this._gestureStartY === 0) return;
+    const dy = this._gestureStartY - point.y;
+    if (Math.abs(dy) > 5) this._isDragging = true;
+    if (this._isDragging) {
+      this.scrollOffset = this._gestureStartOffset + dy;
+      this.requestRender();
+    }
+  }
+
+  onTouchEnd() {
+    this._gestureStartY = 0;
+    this._isDragging = false;
   }
 
   drawHeader(context, box, state) {
@@ -100,22 +143,19 @@ class EmployeeScene {
       });
       context.restore();
       if (maxScroll > 0) {
-        const barW = 5; const barX = listBox.x + listBox.width - barW - 10;
-        const barH = Math.max(20, listBox.height * listBox.height / totalHeight);
-        const barY = listBox.y + (this.scrollOffset / maxScroll) * (listBox.height - barH);
-        context.fillStyle = 'rgba(200,180,140,0.35)';
-        CanvasUtils.fillRoundedRect(context, rect(barX, barY, barW, barH), 3, null);
+        const trackW = 6; const trackX = listBox.x + listBox.width - trackW - 8;
+        const trackY = listBox.y + 4; const trackH = listBox.height - 8;
+        // 滚动条轨道
+        context.fillStyle = '#1a3142';
+        CanvasUtils.fillRoundedRect(context, rect(trackX, trackY, trackW, trackH), 3, null);
+        // 滚动条滑块
+        const barH = Math.max(28, trackH * listBox.height / Math.max(totalHeight, listBox.height));
+        const barY = trackY + (this.scrollOffset / maxScroll) * (trackH - barH);
+        context.fillStyle = '#5a7a8a';
+        CanvasUtils.fillRoundedRect(context, rect(trackX, barY, trackW, barH), 3, null);
         context.fillStyle = null;
-        const btnS = 20; const btnX = listBox.x + listBox.width - btnS - 4;
-        const btnUp = rect(btnX, listBox.y + 1, btnS, btnS);
-        const btnDown = rect(btnX, listBox.y + listBox.height - btnS - 1, btnS, btnS);
-        context.fillStyle = 'rgba(120,140,160,0.45)'; context.font = 'bold 9px sans-serif'; context.textAlign = 'center';
-        CanvasUtils.fillRoundedRect(context, btnUp, 3, null); context.fillStyle = '#d5dfdf'; context.fillText('▲', btnUp.x + btnS / 2, btnUp.y + btnS / 2 + 3);
-        context.fillStyle = 'rgba(120,140,160,0.45)';
-        CanvasUtils.fillRoundedRect(context, btnDown, 3, null); context.fillStyle = '#d5dfdf'; context.fillText('▼', btnDown.x + btnS / 2, btnDown.y + btnS / 2 + 3);
-        context.fillStyle = null;
-        this.inputManager.register('employee:scrollUp', btnUp, () => { this.scrollOffset = Math.max(0, this.scrollOffset - cardH - cardGap); this.requestRender(); });
-        this.inputManager.register('employee:scrollDown', btnDown, () => { this.scrollOffset = Math.min(maxScroll, this.scrollOffset + cardH + cardGap); this.requestRender(); });
+        // 注册列表区域拖动滚动
+        this._listBox = listBox;
       }
     }
     const detail = rect(listBox.x + listBox.width + 7, box.y, detailWidth, box.height);
