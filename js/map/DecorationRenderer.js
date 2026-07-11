@@ -257,7 +257,9 @@ class DecorationRenderer {
           context.scale(wall.flipH ? -1 : 1, wall.flipV ? -1 : 1);
           context.drawImage(image, -sr.width / 2, -sr.height / 2, sr.width, sr.height);
         } else {
-          context.drawImage(image, sr.x, sr.y, sr.width, sr.height);
+          context.translate(sr.x + sr.width / 2, sr.y + sr.height / 2);
+          context.scale(wall.flipH ? -1 : 1, wall.flipV ? -1 : 1);
+          context.drawImage(image, -sr.width / 2, -sr.height / 2, sr.width, sr.height);
         }
         context.restore();
       } else {

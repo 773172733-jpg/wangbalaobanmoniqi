@@ -28,16 +28,16 @@ class WorldGridSystem {
     var rows = this.rows;
     var walls = [];
     for (var x = 0; x < cols; x++) {
-      walls.push({ type: 'wall_horizontal', side: 'top', index: x });
+      walls.push({ type: 'wall_horizontal', side: 'top', index: x, flipH: false, flipV: false });
     }
     for (var x = 0; x < cols; x++) {
-      walls.push({ type: 'wall_horizontal', side: 'bottom', index: x });
+      walls.push({ type: 'wall_horizontal', side: 'bottom', index: x, flipH: false, flipV: true });
     }
     for (var y = 0; y < rows; y++) {
-      walls.push({ type: 'wall_vertical', side: 'left', index: y });
+      walls.push({ type: 'wall_vertical', side: 'left', index: y, flipH: false, flipV: false });
     }
     for (var y = 0; y < rows; y++) {
-      walls.push({ type: 'wall_vertical', side: 'right', index: y });
+      walls.push({ type: 'wall_vertical', side: 'right', index: y, flipH: true, flipV: false });
     }
     walls.push({ type: 'wall_corner', corner: 'topLeft', flipH: false, flipV: false });
     walls.push({ type: 'wall_corner', corner: 'topRight', flipH: true, flipV: false });
