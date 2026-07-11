@@ -30,19 +30,16 @@ class EmployeeScene {
   }
 
   enter() {
-    console.log('[Employee] enter - assetManager:', !!this.assetManager, 'inputManager:', !!this.inputManager);
-    this.system.ensureMarket(false);
+this.system.ensureMarket(false);
     const employees = this.system.employees();
     if (!this.selectedId && employees.length) this.selectedId = employees[0].id;
     this.scrollOffset = 0;
     this._isDragging = false;
     if (this.inputManager) this.inputManager.setGestureHandler(this.gestureHandler);
-    const avatarKeys = ['cleaner_avatar', 'girl_avatar', 'waiter_avatar', 'manager_avatar', 'cashier_avatar', 'youth_avatar'];
+    const avatarKeys = ['cleaner', 'girl', 'waiter', 'manager', 'cashier', 'youth'];
     avatarKeys.forEach(k => {
-      var hasImg = this.assetManager && this.assetManager.hasImage(k);
-      console.log('[Employee] avatar ' + k + ': hasImage=' + hasImg + ' assetManager=' + !!this.assetManager);
-      if (this.assetManager && !hasImg) {
-        this.assetManager.loadImage(k, 'assets/textures/employees/' + k + '.png', () => { console.log('[Employee] loaded ' + k); this.requestRender(); });
+      if (this.assetManager && !this.assetManager.hasImage(k)) {
+        this.assetManager.loadImage(k, 'assets/textures/avatar/' + k + '.png', () => this.requestRender());
       }
     });
   }
@@ -128,8 +125,7 @@ class EmployeeScene {
     const avatar = rect(box.x + 7, box.y + 7, box.height - 14, box.height - 14);
     CanvasUtils.fillRoundedRect(context, avatar, 4, '#1a384e'); CanvasUtils.strokeRoundedRect(context, avatar, 4, '#2d5068', 1);
     const avImg = employee.avatar && this.assetManager ? this.assetManager.getImage(employee.avatar) : null;
-    if (!this._debugAvatarOnce) { console.log('[Employee] drawCard - avatar=' + employee.avatar + ' img=' + !!avImg + ' w=' + (avImg ? avImg.width : 0)); this._debugAvatarOnce = true; }
-    if (avImg && avImg.width) {
+if (avImg && avImg.width) {
       context.drawImage(avImg, avatar.x, avatar.y, avatar.width, avatar.height);
     } else {
       context.fillStyle = '#3a607a'; context.font = 'bold 12px sans-serif'; context.textAlign = 'center'; context.fillText(employee.name.slice(0, 1), avatar.x + avatar.width / 2, avatar.y + avatar.height / 2 + 4);
