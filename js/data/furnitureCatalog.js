@@ -155,5 +155,23 @@ module.exports = [
     ratingBonus: bonus({ hygiene: 2 }),
     renderStyle: { body: '#4f5a61', accent: '#7e8a91' },
     visual: visual({ body: '#4f5a61', accent: '#7e8a91' })
+  },
+  {
+    type: 'bar_counter',
+    name: '吧台',
+    category: '家具',
+    width: 2,
+    height: 1,
+    price: 2000,
+    refundRate: 0.5,
+    maxCount: 1,
+    capacity: 0,
+    ratingBonus: bonus({ service: 10, comfort: 2 }),
+    renderStyle: { body: '#5c3d2e', accent: '#c4946c' },
+    visual: Object.assign(visual({ body: '#5c3d2e', accent: '#c4946c' }), {
+      spriteKey: 'bar_counter',
+      spritePath: 'assets/textures/furniture/bar_counter_01.png',
+      renderScale: 4
+    })
   }
 ];
