@@ -8,6 +8,7 @@ const DecorationRenderer = require('../map/DecorationRenderer');
 const DecorationDraft = require('../systems/DecorationDraft');
 const RatingSystem = require('../systems/RatingSystem');
 const catalog = require('../data/furnitureCatalog');
+const FinanceSystem = require('../systems/FinanceSystem');
 
 function rect(x, y, width, height) { return { x, y, width, height }; }
 function inside(point, box) { return point && point.x >= box.x && point.x <= box.x + box.width && point.y >= box.y && point.y <= box.y + box.height; }
@@ -22,6 +23,7 @@ class DecorationEditorScene {
     this.ratingSystem = new RatingSystem();
     this.catalogByType = RatingSystem.catalogByType;
     this.furnitureManager = new FurnitureManager(this.catalogByType, this.gridMap);
+    this.financeSystem = new FinanceSystem(this.gameState, this.saveManager);
     this.renderer = new DecorationRenderer(this.assetManager, this.gridMap);
     this.camera = new Camera2D({ worldWidth: this.gridMap.columns * this.cellSize, worldHeight: this.gridMap.rows * this.cellSize });
     this.draft = null;
@@ -182,6 +184,7 @@ class DecorationEditorScene {
       const created = this.furnitureManager.create(item.type, item.gridX, item.gridY, item.rotation);
       this.draft.draftFurniture = this.furnitureManager.add(this.draft.draftFurniture, created);
       this.draft.draftCash -= config.price;
+      this.draft.financeEntries.push({ direction: 'expense', category: 'furniture_purchase', amount: config.price, sourceSystem: 'decoration', sourceId: created.id, description: '购买' + config.name });
       this.draft.selectedFurnitureId = created.id;
       this.detailOpen = true;
     } else {
@@ -213,6 +216,7 @@ class DecorationEditorScene {
       { label: '确认出售', action: () => {
         this.draft.draftFurniture = this.furnitureManager.remove(this.draft.draftFurniture, item.id);
         this.draft.draftCash += refund;
+        this.draft.financeEntries.push({ direction: 'income', category: 'asset_sale_refund', amount: refund, sourceSystem: 'decoration', sourceId: item.id, description: '出售' + config.name });
         this.draft.selectedFurnitureId = null;
         this.detailOpen = false;
         this.draft.markDirty();
@@ -221,12 +225,9 @@ class DecorationEditorScene {
   }
 
   savePlan(exitAfter) {
-    const state = this.gameState.snapshot();
-    state.furniture = JSON.parse(JSON.stringify(this.draft.draftFurniture));
-    state.player.cash = this.draft.draftCash;
-    const normalized = this.saveManager.normalize(state);
-    this.gameState.replace(normalized);
-    this.saveManager.save(normalized);
+    const furniture = JSON.parse(JSON.stringify(this.draft.draftFurniture));
+    const result = this.financeSystem.recordBatch(this.draft.financeEntries, (state) => { state.furniture = furniture; }, '装修方案已保存');
+    if (!result.ok) { this.draft.setToast(result.message); this.requestRender(); return; }
     this.draft.resetFromState(this.gameState.getState());
     if (exitAfter) this.exitToMain();
     else { this.draft.setToast('装修方案已保存'); this.requestRender(); }

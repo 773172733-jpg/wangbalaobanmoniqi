@@ -31,7 +31,7 @@ class MainScene {
       device: new DeviceScene(sceneDependencies),
       employee: new EmployeeScene(sceneDependencies),
       marketing: new MarketingScene(sceneDependencies),
-      finance: new FinanceScene()
+      finance: new FinanceScene(sceneDependencies)
     };
   }
 

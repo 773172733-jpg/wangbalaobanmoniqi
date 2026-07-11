@@ -1,7 +1,7 @@
 'use strict';
 
 const initialState = {
-  saveVersion: 5,
+  saveVersion: 6,
   player: {
     level: 1,
     cash: 50000,
@@ -41,6 +41,12 @@ const initialState = {
     activeCampaigns: [],
     cooldowns: {},
     totalSpent: 0
+  },
+  finance: {
+    transactions: [],
+    settledKeys: [],
+    monthlySnapshots: {},
+    settings: { currentViewMonth: null, recurring: { rent: 0, networkFee: 0 } }
   },
   customers: {},
   furniture: [],

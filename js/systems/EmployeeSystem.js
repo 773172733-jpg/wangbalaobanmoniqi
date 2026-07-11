@@ -1,6 +1,7 @@
 'use strict';
 
 const catalog = require('../data/employeeCatalog');
+const FinanceSystem = require('./FinanceSystem');
 
 function clone(value) { return JSON.parse(JSON.stringify(value)); }
 function clamp(value, min, max) { return Math.max(min, Math.min(max, value)); }
@@ -10,6 +11,7 @@ class EmployeeSystem {
     this.gameState = gameState || null;
     this.saveManager = saveManager || null;
     this.random = random || Math.random;
+    this.financeSystem = gameState ? new FinanceSystem(gameState, saveManager) : null;
   }
 
   static dateKey(time) {
@@ -79,20 +81,17 @@ class EmployeeSystem {
   }
 
   hire(candidateId) {
-    const next = this.gameState.snapshot();
-    const candidates = next.employeeMarket && next.employeeMarket.candidates || [];
+    const state = this.gameState.getState();
+    const candidates = state.employeeMarket && state.employeeMarket.candidates || [];
     const index = candidates.findIndex((item) => item.id === candidateId);
     if (index < 0) return { ok: false, message: '该候选人已不在人才市场。' };
     const candidate = candidates[index];
-    if (next.player.cash < candidate.salary) return { ok: false, message: '资金不足，无法招聘。' };
-    next.player.cash -= candidate.salary;
     const employee = clone(candidate);
     employee.id = 'emp_' + Date.now() + '_' + this.randomInt(100, 999);
     delete employee.quality;
-    next.employees.push(employee);
-    candidates.splice(index, 1);
-    this.commit(next);
-    return { ok: true, message: '成功招聘' + employee.name + '，已预付首月工资。', employee: employee };
+    const result = this.financeSystem.recordExpense({ category: 'recruitment', amount: candidate.salary, sourceSystem: 'employee', sourceId: candidate.id, description: '招聘' + employee.name + '（预付首月工资）', successMessage: '成功招聘' + employee.name + '，已预付首月工资。', mutate: (next) => { const list = next.employeeMarket.candidates; const currentIndex = list.findIndex((item) => item.id === candidate.id); if (currentIndex < 0) throw new Error('候选人已不存在'); list.splice(currentIndex, 1); next.employees.push(employee); } });
+    if (result.ok) result.employee = employee;
+    return result;
   }
 
   dismiss(employeeId) {
@@ -106,17 +105,10 @@ class EmployeeSystem {
   }
 
   upgrade(employeeId) {
-    const next = this.gameState.snapshot();
-    const employee = next.employees.find((item) => item.id === employeeId);
+    const employee = this.gameState.getState().employees.find((item) => item.id === employeeId);
     if (!employee) return { ok: false, message: '未找到该员工。' };
     const cost = Math.round(employee.salary * 0.5);
-    if (next.player.cash < cost) return { ok: false, message: '资金不足，无法升级。' };
-    next.player.cash -= cost;
-    employee.level += 1;
-    employee.salary = Math.round(employee.salary * 1.08 / 10) * 10;
-    Object.keys(employee.attributes).forEach((key) => { employee.attributes[key] = clamp(employee.attributes[key] + 2, 0, 100); });
-    this.commit(next);
-    return { ok: true, message: employee.name + '已升级至 Lv.' + employee.level + '。' };
+    return this.financeSystem.recordExpense({ category: 'daily_operation', amount: cost, sourceSystem: 'employee', sourceId: employeeId, description: employee.name + '员工培训', successMessage: employee.name + '已升级至 Lv.' + (employee.level + 1) + '。', mutate: (next) => { const target = next.employees.find((item) => item.id === employeeId); if (!target) throw new Error('员工已不存在'); target.level += 1; target.salary = Math.round(target.salary * 1.08 / 10) * 10; Object.keys(target.attributes).forEach((key) => { target.attributes[key] = clamp(target.attributes[key] + 2, 0, 100); }); } });
   }
 
   processWorkDay() {

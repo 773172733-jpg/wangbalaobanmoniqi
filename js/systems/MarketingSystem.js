@@ -2,6 +2,7 @@
 
 const catalog = require('../data/marketingCatalog');
 const EmployeeSystem = require('./EmployeeSystem');
+const FinanceSystem = require('./FinanceSystem');
 
 function clamp(value, min, max) { return Math.max(min, Math.min(max, value)); }
 function dayNumber(time) { const value = time || {}; return ((Number(value.year) || 1) - 1) * 360 + ((Number(value.month) || 1) - 1) * 30 + (Number(value.day) || 1); }
@@ -11,6 +12,7 @@ class MarketingSystem {
     this.gameState = gameState || null;
     this.saveManager = saveManager || null;
     this.employeeSystem = new EmployeeSystem();
+    this.financeSystem = gameState ? new FinanceSystem(gameState, saveManager) : null;
   }
 
   state(source) {
@@ -61,17 +63,8 @@ class MarketingSystem {
     if (!this.gameState) return { ok: false, message: '营销系统尚未连接游戏状态。' };
     const check = this.canLaunch(id);
     if (!check.ok) return check;
-    const next = this.gameState.snapshot();
     const config = catalog.byId[id];
-    const today = dayNumber(next.time);
-    next.player.cash -= config.cost;
-    next.marketing.awareness = clamp(next.marketing.awareness + config.awarenessGain, 0, 100);
-    next.marketing.totalSpent += config.cost;
-    next.marketing.activeCampaigns = this.getActiveCampaigns(next);
-    next.marketing.activeCampaigns.push({ id: id, startDay: today, endDay: today + config.duration - 1 });
-    next.marketing.cooldowns[id] = today + config.duration + config.cooldown;
-    this.commit(next);
-    return { ok: true, message: config.name + '已开始，持续 ' + config.duration + ' 天。' };
+    return this.financeSystem.recordExpense({ category: 'marketing', amount: config.cost, sourceSystem: 'marketing', sourceId: id, description: config.name, successMessage: config.name + '已开始，持续 ' + config.duration + ' 天。', mutate: (next) => { const today = dayNumber(next.time); next.marketing.awareness = clamp(next.marketing.awareness + config.awarenessGain, 0, 100); next.marketing.totalSpent += config.cost; next.marketing.activeCampaigns = this.getActiveCampaigns(next); next.marketing.activeCampaigns.push({ id: id, startDay: today, endDay: today + config.duration - 1 }); next.marketing.cooldowns[id] = today + config.duration + config.cooldown; } });
   }
 
   commit(next) {

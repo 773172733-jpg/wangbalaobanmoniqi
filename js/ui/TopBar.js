@@ -7,7 +7,7 @@ class TopBar {
     const cafe = state.cafe;
     const items = [
       ['网吧等级', 'Lv.' + state.player.level],
-      ['现金', '¥' + state.player.cash.toLocaleString()],
+      ['现金', '¥' + state.player.cash.toLocaleString() + (state.player.cash < 0 ? ' 赤字' : '')],
       ['今日收入', '¥' + cafe.todayIncome.toLocaleString()],
       ['顾客数量', String(cafe.customerCount)],
       ['满意度', cafe.satisfaction + '%'],

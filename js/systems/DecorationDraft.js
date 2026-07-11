@@ -13,6 +13,7 @@ class DecorationDraft {
   resetFromState(state) {
     this.draftFurniture = clone(state.furniture || []);
     this.draftCash = Number(state.player && state.player.cash) || 0;
+    this.financeEntries = [];
     this.dirty = false;
     this.selectedFurnitureId = null;
     this.selectedCatalogType = null;

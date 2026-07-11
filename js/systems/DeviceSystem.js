@@ -2,6 +2,7 @@
 
 const equipmentCatalog = require('../data/equipmentCatalog');
 const furnitureCatalog = require('../data/furnitureCatalog');
+const FinanceSystem = require('./FinanceSystem');
 
 function clamp(value, min, max) { return Math.max(min, Math.min(max, value)); }
 function integer(value, fallback) {
@@ -13,6 +14,7 @@ class DeviceSystem {
   constructor(gameState, saveManager) {
     this.gameState = gameState || null;
     this.saveManager = saveManager || null;
+    this.financeSystem = gameState ? new FinanceSystem(gameState, saveManager) : null;
     this.catalog = equipmentCatalog;
     this.furnitureByType = {};
     furnitureCatalog.forEach((item) => { this.furnitureByType[item.type] = item; });
@@ -146,12 +148,7 @@ class DeviceSystem {
   purchase(type) {
     const config = this.catalog.byType[type];
     if (!config) return { ok: false, message: '未知设备类型。' };
-    return this.commit((state) => {
-      if (state.player.cash < config.purchasePrice) return { ok: false, message: '现金不足，无法购买该设备。' };
-      state.player.cash -= config.purchasePrice;
-      state.devices[type].owned += 1;
-      return { ok: true, message: '已购买一台' + config.name + '。' };
-    });
+    return this.financeSystem.recordExpense({ category: 'equipment_purchase', amount: config.purchasePrice, sourceSystem: 'device', sourceId: type, description: '购买' + config.name, successMessage: '已购买一台' + config.name + '。', mutate: (state) => { state.devices = this.sanitizeDevices(state.devices, state.furniture).devices; state.devices[type].owned += 1; } });
   }
 
   install(type) {
@@ -181,30 +178,20 @@ class DeviceSystem {
   upgrade(type) {
     const config = this.catalog.byType[type];
     if (!config) return { ok: false, message: '未知设备类型。' };
-    return this.commit((state) => {
-      const record = state.devices[type];
-      if (record.owned <= 0) return { ok: false, message: '请先购买该设备。' };
-      if (record.level >= config.maxLevel) return { ok: false, message: '已达到最高等级。' };
-      const cost = config.upgradeBasePrice * record.level;
-      if (state.player.cash < cost) return { ok: false, message: '现金不足，无法升级该设备。' };
-      state.player.cash -= cost;
-      record.level += 1;
-      return { ok: true, message: '设备已升级至 Lv.' + record.level + '。' };
-    });
+    const record = this.getRecord(this.gameState.getState().devices, type);
+    if (record.owned <= 0) return { ok: false, message: '请先购买该设备。' };
+    if (record.level >= config.maxLevel) return { ok: false, message: '已达到最高等级。' };
+    const cost = config.upgradeBasePrice * record.level;
+    return this.financeSystem.recordExpense({ category: 'equipment_upgrade', amount: cost, sourceSystem: 'device', sourceId: type, description: '升级' + config.name, successMessage: '设备已升级至 Lv.' + (record.level + 1) + '。', mutate: (state) => { state.devices = this.sanitizeDevices(state.devices, state.furniture).devices; state.devices[type].level += 1; } });
   }
 
   repair(type) {
     const config = this.catalog.byType[type];
     if (!config) return { ok: false, message: '未知设备类型。' };
-    return this.commit((state) => {
-      const record = state.devices[type];
-      if (record.condition >= 100) return { ok: false, message: '设备状态良好，无需维修。' };
-      const cost = Math.ceil((100 - record.condition) * config.dailyMaintenance);
-      if (state.player.cash < cost) return { ok: false, message: '现金不足，无法维修该设备。' };
-      state.player.cash -= cost;
-      record.condition = 100;
-      return { ok: true, message: '设备维修完成。' };
-    });
+    const record = this.getRecord(this.gameState.getState().devices, type);
+    if (record.condition >= 100) return { ok: false, message: '设备状态良好，无需维修。' };
+    const cost = Math.ceil((100 - record.condition) * config.dailyMaintenance);
+    return this.financeSystem.recordExpense({ category: 'equipment_maintenance', amount: cost, sourceSystem: 'device', sourceId: type, description: '维修' + config.name, successMessage: '设备维修完成。', mutate: (state) => { state.devices = this.sanitizeDevices(state.devices, state.furniture).devices; state.devices[type].condition = 100; } });
   }
 }
 

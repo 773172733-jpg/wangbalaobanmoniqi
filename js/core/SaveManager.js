@@ -1,13 +1,14 @@
 'use strict';
 
 const STORAGE_KEY = 'internetCafeOwnerSave';
-const CURRENT_VERSION = 5;
+const CURRENT_VERSION = 6;
 const furnitureCatalog = require('../data/furnitureCatalog');
 const GridMap = require('../map/GridMap');
 const FurnitureManager = require('../map/FurnitureManager');
 const RatingSystem = require('../systems/RatingSystem');
 const DeviceSystem = require('../systems/DeviceSystem');
 const EmployeeSystem = require('../systems/EmployeeSystem');
+const FinanceSystem = require('../systems/FinanceSystem');
 
 function clone(value) {
   return JSON.parse(JSON.stringify(value));
@@ -44,6 +45,7 @@ class SaveManager {
     this.ratingSystem = new RatingSystem();
     this.deviceSystem = new DeviceSystem();
     this.employeeSystem = new EmployeeSystem();
+    this.financeSystem = new FinanceSystem();
   }
 
   load() {
@@ -85,6 +87,7 @@ class SaveManager {
     if (version < 3) migrated = this.migrateV2ToV3(migrated);
     if (version < 4) migrated = this.migrateV3ToV4(migrated);
     if (version < 5) migrated = this.migrateV4ToV5(migrated);
+    if (version < 6) migrated = this.migrateV5ToV6(migrated);
     if (version > CURRENT_VERSION) {
       console.warn('[存档] 检测到更高版本存档，将使用兼容字段读取');
     }
@@ -118,6 +121,11 @@ class SaveManager {
     return data;
   }
 
+  migrateV5ToV6(data) {
+    if (!isPlainObject(data.finance)) data.finance = FinanceSystem.defaultState();
+    return data;
+  }
+
   normalize(data) {
     const merged = mergeDefaults(this.defaultState, data);
     merged.saveVersion = CURRENT_VERSION;
@@ -131,6 +139,9 @@ class SaveManager {
     if (!isPlainObject(merged.marketing)) merged.marketing = clone(this.defaultState.marketing);
     if (!Array.isArray(merged.marketing.activeCampaigns)) merged.marketing.activeCampaigns = [];
     merged.marketing.cooldowns = isPlainObject(data && data.marketing && data.marketing.cooldowns) ? clone(data.marketing.cooldowns) : {};
+    merged.finance = this.financeSystem.normalizeFinance(data && data.finance);
+    if (!Number.isFinite(Number(merged.player.cash))) merged.player.cash = 0;
+    else merged.player.cash = Math.round(Number(merged.player.cash));
     normalizedDevices.warnings.forEach((message) => console.warn('[存档] ' + message));
     const deviceScore = this.deviceSystem.calculateScore(merged.devices);
     let ratings = this.ratingSystem.combineDeviceRating(this.ratingSystem.calculate(merged.furniture), deviceScore);
