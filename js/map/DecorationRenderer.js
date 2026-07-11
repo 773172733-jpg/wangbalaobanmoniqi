@@ -236,8 +236,11 @@ class DecorationRenderer {
       if (item.textureVariant != null && config.visual && config.visual.variants) {
         const variant = config.visual.variants[item.textureVariant];
         if (variant) {
+          console.log("[OV] tv=" + item.textureVariant + " key=" + variant.spriteKey);
           effectiveConfig = Object.assign({}, config, { visual: Object.assign({}, config.visual, { spriteKey: variant.spriteKey, spritePath: variant.spritePath }) });
         }
+      } else if (item.type && item.type.indexOf("desk") >= 0) {
+        console.log("[OV] desk NO variant: " + item.type + " tv=" + item.textureVariant);
       }
       const renderConfig = Object.assign({}, effectiveConfig, { renderStyle: (effectiveConfig.visual && effectiveConfig.visual.fallbackStyle) || effectiveConfig.renderStyle });
       const size = this.gridMap.getRotatedSize(config, item.rotation || 0);

@@ -63,6 +63,13 @@ class OverviewScene {
     if (this.assetManager && !this.assetManager.hasImage(floorKey)) {
       this.assetManager.loadImage(floorKey, 'assets/textures/floor/floor_concrete_old_01.png', () => this.requestRender());
     }
+    // 预加载电脑变体贴图
+    var pcKeys = ['pc_color_01', 'pc_color_02', 'pc_color_03'];
+    pcKeys.forEach(function(key) {
+      if (this.assetManager && !this.assetManager.hasImage(key)) {
+        this.assetManager.loadImage(key, 'assets/textures/furniture/' + key + '.png', function() { this.requestRender(); }.bind(this));
+      }
+    }.bind(this));
     const wallKeys = ['wall_horizontal', 'wall_vertical', 'wall_corner'];
     const wallPaths = {
       wall_horizontal: 'assets/textures/wall/wall_horizontal_01.png',
