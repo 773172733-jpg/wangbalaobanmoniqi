@@ -1,4 +1,4 @@
-﻿'use strict';
+﻿﻿'use strict';
 
 const CanvasUtils = require('../ui/CanvasUtils');
 const DeviceSystem = require('../systems/DeviceSystem');
@@ -14,6 +14,7 @@ class DeviceScene {
     const deps = dependencies || {};
     this.title = '设备管理';
     this.inputManager = deps.inputManager;
+    this.gameState = deps.gameState;
     this.assetManager = deps.assetManager || null;
     this.requestRender = deps.requestRender || function () {};
     this.deviceSystem = new DeviceSystem(deps.gameState, deps.saveManager);
