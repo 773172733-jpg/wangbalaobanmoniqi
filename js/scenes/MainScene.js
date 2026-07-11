@@ -1,4 +1,4 @@
-﻿﻿'use strict';
+'use strict';
 
 const UIManager = require('../ui/UIManager');
 const TopBar = require('../ui/TopBar');
@@ -138,7 +138,7 @@ class MainScene {
     context.fillRect(0, 0, viewport.width, viewport.height);
 
     const state = this.gameState.getState();
-    const topBarWidth = contentWidth - navWidth - 40;
+    const topBarWidth = contentWidth - navWidth - 44;
     this.topBar.draw(context, {
       x: contentLeft + navWidth,
       y: topY,
