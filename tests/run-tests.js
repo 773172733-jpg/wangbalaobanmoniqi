@@ -16,6 +16,8 @@ const TimeManager = require('../js/core/TimeManager');
 const BusinessSimulationSystem = require('../js/systems/BusinessSimulationSystem');
 const ExpansionSystem = require('../js/systems/ExpansionSystem');
 const expansionConfig = require('../js/data/expansionConfig');
+const MapSystem = require('../js/map/MapSystem');
+const GridMap = require('../js/map/GridMap');
 const OperatingMetricsSystem = require('../js/systems/OperatingMetricsSystem');
 
 function clone(value) { return JSON.parse(JSON.stringify(value)); }
@@ -522,9 +524,114 @@ function testExpansion() {
   assert.ok(dims.worldHeight > 0);
 }
 
+
+function testExpansionMapLinkage() {
+  // Setup
+  global.wx = createWx();
+  const saveManager = new SaveManager(initialState);
+  const raw = clone(initialState);
+  raw.player.cash = 5000000;
+  const data = saveManager.normalize(raw);
+  const eventBus = new EventBus();
+  const gameState = new GameState(data, eventBus);
+  const expansionSystem = new ExpansionSystem(gameState, saveManager);
+  const mapSystem = new MapSystem(expansionSystem, 40);
+  const gridMap = new GridMap(mapSystem.getColumns(), mapSystem.getRows());
+
+  // 1. Initial map size is correct
+  let worldSize = mapSystem.getWorldSize();
+  assert.ok(worldSize.width > 0, 'World width should be positive');
+  assert.ok(worldSize.height > 0, 'World height should be positive');
+  let bounds = mapSystem.getBounds();
+  assert.strictEqual(bounds.minX, 0);
+  assert.strictEqual(bounds.minY, 0);
+  assert.ok(bounds.maxX > 0);
+  assert.ok(bounds.maxY > 0);
+
+  // 2. After expansion, map size increases
+  let mapExpandedFired = false;
+  let eventPayload = null;
+  eventBus.on('mapExpanded', (payload) => {
+    mapExpandedFired = true;
+    eventPayload = payload;
+  });
+
+  gameState.getState().player.cash = 5000000;
+  const result = expansionSystem.expand();
+  assert.ok(result.ok, 'Expansion should succeed');
+  assert.ok(mapExpandedFired, 'mapExpanded event should fire');
+  assert.ok(eventPayload, 'Event payload should exist');
+  assert.ok(eventPayload.dimensions, 'Event should include dimensions');
+  assert.ok(eventPayload.dimensions.columns > 0);
+  assert.ok(eventPayload.dimensions.rows > 0);
+
+  // 3. MapSystem reflects expanded size
+  worldSize = mapSystem.getWorldSize();
+  assert.ok(worldSize.width > 480, 'World width should increase after expansion');
+  assert.ok(worldSize.height > 320, 'World height should increase after expansion');
+
+  // 4. GridMap can be updated from MapSystem
+  const newColumns = mapSystem.getColumns();
+  const newRows = mapSystem.getRows();
+  assert.ok(newColumns >= 12, 'Columns should increase or stay at minimum');
+  gridMap.columns = newColumns;
+  gridMap.rows = newRows;
+  assert.ok(gridMap.isInside(0, 0, 1, 1), 'Grid should still be valid');
+  assert.ok(!gridMap.isInside(newColumns, 0, 1, 1), 'Should not place outside new bounds');
+
+  // 5. Camera bounds work with new dimensions
+  const Camera2D = require('../js/map/Camera2D');
+  const camera = new Camera2D({ worldWidth: worldSize.width, worldHeight: worldSize.height });
+  camera.setViewport({ x: 0, y: 0, width: 400, height: 300 });
+  
+  // Camera should stay within bounds
+  camera.cameraX = -100;
+  camera.clamp();
+  assert.ok(camera.cameraX >= 0, 'Camera X should be clamped to min 0');
+  
+  camera.cameraX = worldSize.width + 1000;
+  camera.clamp();
+  assert.ok(camera.cameraX <= worldSize.width, 'Camera X should be clamped to max');
+
+  camera.cameraY = -100;
+  camera.clamp();
+  assert.ok(camera.cameraY >= 0, 'Camera Y should be clamped to min 0');
+
+  camera.cameraY = worldSize.height + 1000;
+  camera.clamp();
+  assert.ok(camera.cameraY <= worldSize.height, 'Camera Y should be clamped to max');
+
+  // 6. Multiple expansions continue to increase size
+  gameState.getState().player.cash = 5000000;
+  const beforeMulti = mapSystem.getWorldSize();
+  expansionSystem.expand();
+  gameState.getState().player.cash = 5000000;
+  expansionSystem.expand();
+  const afterMulti = mapSystem.getWorldSize();
+  assert.ok(afterMulti.width > beforeMulti.width, 'Multiple expansions increase world width');
+  assert.ok(afterMulti.height > beforeMulti.height, 'Multiple expansions increase world height');
+
+  // 7. Save and verify expansion data persists
+  saveManager.save(gameState.getState());
+  const reloaded = saveManager.load();
+  assert.ok(reloaded.expansion, 'Expansion data should exist after reload');
+  assert.strictEqual(reloaded.expansion.level, 3, 'Expansion level should persist');
+  assert.strictEqual(reloaded.expansion.currentArea, 21970, 'Expansion area should persist');
+
+  // 8. MapSystem with null expansionSystem returns defaults
+  const defaultMap = new MapSystem(null, 40);
+  const defaultSize = defaultMap.getWorldSize();
+  assert.ok(defaultSize.width > 0);
+  assert.ok(defaultSize.height > 0);
+  const defaultBounds = defaultMap.getBounds();
+  assert.strictEqual(defaultBounds.minX, 0);
+  assert.strictEqual(defaultBounds.minY, 0);
+}
+
 function run() {
   testMigrationAndRecovery();
   testExpansion();
+  testExpansionMapLinkage();
   testDeviceRules();
   testEmployeeRules();
   testMarketingRules();

@@ -87,6 +87,14 @@ class ExpansionSystem {
       baseArea: config.baseArea,
       history: (expansionData.history || []).concat([historyEntry])
     });
+    if (this.gameState && this.gameState.eventBus) {
+      this.gameState.eventBus.emit('mapExpanded', {
+        level: newLevel,
+        beforeArea: beforeArea,
+        afterArea: afterArea,
+        dimensions: this.getMapDimensions()
+      });
+    }
     return { ok: true, cost: cost, beforeArea: beforeArea, afterArea: afterArea, level: newLevel };
   }
 

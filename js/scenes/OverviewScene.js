@@ -1,4 +1,4 @@
-'use strict';
+﻿'use strict';
 
 const DecorationRenderer = require('../map/DecorationRenderer');
 const GridMap = require('../map/GridMap');
@@ -8,6 +8,8 @@ const OperatingMetricsSystem = require('../systems/OperatingMetricsSystem');
 const CanvasUtils = require('../ui/CanvasUtils');
 const BusinessDebugPanel = require('../ui/BusinessDebugPanel');
 const operatingConfig = require('../data/operatingConfig');
+const ExpansionSystem = require('../systems/ExpansionSystem');
+const MapSystem = require('../map/MapSystem');
 
 function rect(x, y, width, height) { return { x: x, y: y, width: width, height: height }; }
 function inside(point, box) { return point && point.x >= box.x && point.x <= box.x + box.width && point.y >= box.y && point.y <= box.y + box.height; }
@@ -20,19 +22,21 @@ class OverviewScene {
     this.assetManager = deps.assetManager || deps;
     this.inputManager = deps.inputManager || null;
     this.requestRender = deps.requestRender || function () {};
-    this.gridMap = new GridMap();
+    this.expansionSystem = new ExpansionSystem(deps.gameState, deps.saveManager);
     this.cellSize = 54;
+    this.mapSystem = new MapSystem(this.expansionSystem, this.cellSize);
+    const wsOverview = this.mapSystem.getWorldSize();
+    this.gridMap = new GridMap(this.mapSystem.getColumns(), this.mapSystem.getRows());
     this.decorationRenderer = new DecorationRenderer(this.assetManager, this.gridMap);
     this.deviceSystem = new DeviceSystem();
     this.operatingMetricsSystem = new OperatingMetricsSystem();
     this.debugPanel = operatingConfig.DEBUG_BUSINESS_SIMULATION && deps.businessSimulation ? new BusinessDebugPanel(deps.businessSimulation, this.inputManager, this.requestRender) : null;
     this.camera = new Camera2D({
-      worldWidth: this.gridMap.columns * this.cellSize,
-      worldHeight: this.gridMap.rows * this.cellSize,
+      worldWidth: wsOverview.width,
+      worldHeight: wsOverview.height,
       minZoom: 0.66,
       maxZoom: 1.25
-    });
-    this.mapBounds = rect(0, 0, 1, 1);
+    });this.mapBounds = rect(0, 0, 1, 1);
     this.resetHitBox = rect(0, 0, 1, 1);
     this.gesture = null;
     this.hasLayout = false;
@@ -50,6 +54,18 @@ class OverviewScene {
   enter() {
     this.gesture = null;
     if (this.inputManager) this.inputManager.setGestureHandler(this.gestureHandler);
+    if (this.gameState && this.gameState.eventBus) {
+      if (this._unsubMapExpanded) this._unsubMapExpanded();
+      this._unsubMapExpanded = this.gameState.eventBus.on('mapExpanded', () => {
+        const dims = this.mapSystem.getDimensions();
+        this.gridMap.columns = dims.columns;
+        this.gridMap.rows = dims.rows;
+        const size = this.mapSystem.getWorldSize();
+        this.camera.setWorldSize(size.width, size.height);
+        this.hasLayout = false;
+        this.requestRender();
+      });
+    }
   }
 
   leave() {
@@ -193,7 +209,8 @@ class OverviewScene {
     const nextMapBounds = rect(bounds.x + padding, bodyY, mapWidth, bodyHeight);
     const sizeChanged = nextMapBounds.x !== this.mapBounds.x || nextMapBounds.y !== this.mapBounds.y || nextMapBounds.width !== this.mapBounds.width || nextMapBounds.height !== this.mapBounds.height;
     this.mapBounds = nextMapBounds;
-    this.camera.setWorldSize(this.gridMap.columns * this.cellSize, this.gridMap.rows * this.cellSize);
+    const ws = this.mapSystem.getWorldSize();
+    this.camera.setWorldSize(ws.width, ws.height);
     this.camera.setViewport(this.mapBounds);
     if (!this.hasLayout || sizeChanged) { this.camera.fitToView(8); this.hasLayout = true; }
 

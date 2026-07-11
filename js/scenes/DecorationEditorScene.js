@@ -10,6 +10,7 @@ const RatingSystem = require('../systems/RatingSystem');
 const catalog = require('../data/furnitureCatalog');
 const FinanceSystem = require('../systems/FinanceSystem');
 const ExpansionSystem = require('../systems/ExpansionSystem');
+const MapSystem = require('../map/MapSystem');
 
 function rect(x, y, width, height) { return { x, y, width, height }; }
 function inside(point, box) { return point && point.x >= box.x && point.x <= box.x + box.width && point.y >= box.y && point.y <= box.y + box.height; }
