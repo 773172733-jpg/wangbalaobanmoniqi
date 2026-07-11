@@ -194,7 +194,7 @@ class DecorationRenderer {
     this._wallConfigs = {
       wall_horizontal: { spriteKey: "wall_horizontal", spritePath: "assets/textures/wall/wall_horizontal_01.png", renderScale: 0.12 },
       wall_vertical: { spriteKey: "wall_vertical", spritePath: "assets/textures/wall/wall_vertical_01.png", renderScale: 0.12 },
-      wall_corner: { spriteKey: "wall_corner", spritePath: "assets/textures/wall/wall_corner_L_01.png", renderScale: 0.12 }
+      wall_corner: { spriteKey: "wall_corner", spritePath: "assets/textures/wall/wall_corner_L_01.png", renderScale: 0.10 }
     };
     return this._wallConfigs;
   }
