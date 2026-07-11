@@ -194,7 +194,7 @@ class DecorationRenderer {
     this._wallConfigs = {
       wall_horizontal: { spriteKey: "wall_horizontal", spritePath: "assets/textures/wall/wall_horizontal_01.png", renderScale: 1 },
       wall_vertical: { spriteKey: "wall_vertical", spritePath: "assets/textures/wall/wall_vertical_01.png", renderScale: 1 },
-      wall_corner: { spriteKey: "wall_corner", spritePath: "assets/textures/wall/wall_corner_L_01.png", renderScale: 0.85 }
+      wall_corner: { spriteKey: "wall_corner", spritePath: "assets/textures/wall/wall_corner_L_01.png", renderScale: 1 }
     };
     return this._wallConfigs;
   }
@@ -210,8 +210,14 @@ class DecorationRenderer {
       var cell = cellSize || 40;
       var p = camera.worldToScreen(wall.gridX * cell, wall.gridY * cell);
       var scale = cfg.renderScale || 1;
-      var boxW = Math.round(cell * camera.zoom * scale);
-      var boxH = Math.round(cell * camera.zoom * scale);
+      var base = Math.round(cell * camera.zoom * scale);
+      var boxW = base;
+      var boxH = base;
+      if (image && image.width && image.height) {
+        var nImgRatio = image.width / image.height;
+        if (nImgRatio > 1) { boxH = Math.round(base / nImgRatio); }
+        else { boxW = Math.round(base * nImgRatio); }
+      }
       var box = { x: Math.round(p.x), y: Math.round(p.y), width: boxW, height: boxH };
       if (image && image.width && image.height) {
         context.save();
