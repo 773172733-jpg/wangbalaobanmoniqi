@@ -128,6 +128,7 @@ class DeviceScene {
           this.requestRender();
           return;
         }
+        this.ensureMapReady();
         this.placementMode = true;
         this.placementType = this.selectedType;
         this.placementGridCell = null;
@@ -315,7 +316,7 @@ class DeviceScene {
     this.placementGridCell = null;
     this.cachedState = null;
     this.cachedSummary = null;
-    this.saveManager.save(state);
+    this.gameState.saveManager ? this.gameState.saveManager.save(state) : null;
     this.requestRender();
   }
 
