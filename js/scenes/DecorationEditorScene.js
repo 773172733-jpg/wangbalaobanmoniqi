@@ -11,6 +11,7 @@ const catalog = require('../data/furnitureCatalog');
 const FinanceSystem = require('../systems/FinanceSystem');
 const ExpansionSystem = require('../systems/ExpansionSystem');
 const MapSystem = require('../map/MapSystem');
+const MapBoundsManager = require('../map/MapBoundsManager');
 
 function rect(x, y, width, height) { return { x, y, width, height }; }
 function inside(point, box) { return point && point.x >= box.x && point.x <= box.x + box.width && point.y >= box.y && point.y <= box.y + box.height; }
@@ -53,6 +54,13 @@ class DecorationEditorScene {
     this.detailOpen = false;
     this.expansionOpen = false;
     this.gesture = null;
+    if (this.gameState && this.gameState.eventBus) {
+      if (this._unsubMapExpanded) this._unsubMapExpanded();
+      this._unsubMapExpanded = this.gameState.eventBus.on('mapExpanded', () => {
+        this.syncCameraBounds();
+        this.requestRender();
+      });
+    }
     this.inputManager.setGestureHandler(this.gestureHandler);
     catalog.forEach((item) => {
       const visual = item.visual || {};
@@ -429,6 +437,13 @@ class DecorationEditorScene {
     }, false, item.gold));
   }
 
+  syncCameraBounds() {
+    const dims = this.boundsManager.refresh();
+    this.gridMap.columns = dims.columns;
+    this.gridMap.rows = dims.rows;
+    this.camera.setWorldSize(dims.worldWidth, dims.worldHeight);
+  }
+
   render() {
     const context = this.context;
     const viewport = this.viewport;
@@ -438,6 +453,10 @@ class DecorationEditorScene {
     const bottomH = 48;
     this.mapBounds = rect(safe.x, safe.y + topH, safe.width, safe.height - topH - bottomH);
     const firstLayout = this.camera.viewportRect.width <= 1;
+    if (!firstLayout) {
+      const ws = this.boundsManager.getWorldSize();
+      this.camera.setWorldSize(ws.width, ws.height);
+    }
     this.camera.setViewport(this.mapBounds);
     if (firstLayout) this.camera.fitToView(10);
     this.inputManager.clear();

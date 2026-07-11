@@ -10,6 +10,7 @@ const BusinessDebugPanel = require('../ui/BusinessDebugPanel');
 const operatingConfig = require('../data/operatingConfig');
 const ExpansionSystem = require('../systems/ExpansionSystem');
 const MapSystem = require('../map/MapSystem');
+const MapBoundsManager = require('../map/MapBoundsManager');
 
 function rect(x, y, width, height) { return { x: x, y: y, width: width, height: height }; }
 function inside(point, box) { return point && point.x >= box.x && point.x <= box.x + box.width && point.y >= box.y && point.y <= box.y + box.height; }
@@ -24,17 +25,17 @@ class OverviewScene {
     this.requestRender = deps.requestRender || function () {};
     this.expansionSystem = new ExpansionSystem(deps.gameState, deps.saveManager);
     this.cellSize = 54;
-    this.mapSystem = new MapSystem(this.expansionSystem, this.cellSize);
-    const wsOverview = this.mapSystem.getWorldSize();
-    this.gridMap = new GridMap(this.mapSystem.getColumns(), this.mapSystem.getRows());
+    this.boundsManager = new MapBoundsManager(this.expansionSystem, this.cellSize);
+    const initDimsOv = this.boundsManager.getDimensions();
+    this.gridMap = new GridMap(initDimsOv.columns, initDimsOv.rows);
     this.decorationRenderer = new DecorationRenderer(this.assetManager, this.gridMap);
     this.deviceSystem = new DeviceSystem();
     this.operatingMetricsSystem = new OperatingMetricsSystem();
     const enableDebug = operatingConfig.DEBUG_BUSINESS_SIMULATION || operatingConfig.DEBUG_SAVE_RESET;
     this.debugPanel = enableDebug && deps.businessSimulation ? new BusinessDebugPanel(deps.businessSimulation, this.inputManager, this.requestRender, this.saveManager, this.gameState) : null;
     this.camera = new Camera2D({
-      worldWidth: wsOverview.width,
-      worldHeight: wsOverview.height,
+      worldWidth: initDimsOv.worldWidth,
+      worldHeight: initDimsOv.worldHeight,
       minZoom: 0.66,
       maxZoom: 1.25
     });this.mapBounds = rect(0, 0, 1, 1);
@@ -210,10 +211,10 @@ class OverviewScene {
     const nextMapBounds = rect(bounds.x + padding, bodyY, mapWidth, bodyHeight);
     const sizeChanged = nextMapBounds.x !== this.mapBounds.x || nextMapBounds.y !== this.mapBounds.y || nextMapBounds.width !== this.mapBounds.width || nextMapBounds.height !== this.mapBounds.height;
     this.mapBounds = nextMapBounds;
-    const ws = this.mapSystem.getWorldSize();
-    this.camera.setWorldSize(ws.width, ws.height);
+    const wsOv = this.boundsManager.getWorldSize();
+    this.camera.setWorldSize(wsOv.width, wsOv.height);
     this.camera.setViewport(this.mapBounds);
-    if (!this.hasLayout || sizeChanged) { this.camera.fitToView(8); this.hasLayout = true; }
+    if (!this.hasLayout) { this.camera.fitToView(8); this.hasLayout = true; }
 
     const summary = this.getSummary(state);
     this.drawSectionTitle(context, bounds.x + padding, bounds.y + 1);
