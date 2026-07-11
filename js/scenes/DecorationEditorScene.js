@@ -20,8 +20,8 @@ function distance(a, b) { const dx = a.x - b.x; const dy = a.y - b.y; return Mat
 
 class DecorationEditorScene {
   constructor(deps) {
+    Object.assign(this, deps);
     this.name = 'DecorationEditorScene';
-    this.cellSize = 40;
     this.cellSize = 40;
     this.expansionSystem = new ExpansionSystem(this.gameState, this.saveManager);
     this.boundsManager = new MapBoundsManager(this.expansionSystem, this.cellSize);
@@ -467,7 +467,7 @@ class DecorationEditorScene {
     const toast = this.toastMessage ? (Date.now() - this.toastTimer < 2500 ? this.toastMessage : null) : draftToast;
     if (!toast && this.toastMessage && Date.now() - this.toastTimer >= 2500) this.toastMessage = null;
     if (toast) { const box = rect(safe.x + safe.width / 2 - 130, safe.y + safe.height - bottomH - 42, 260, 32); CanvasUtils.fillRoundedRect(context, box, 6, 'rgba(5,15,22,0.9)'); context.fillStyle = '#fff3cf'; context.font = '11px sans-serif'; context.textAlign = 'center'; context.fillText(toast, box.x + box.width / 2, box.y + 21); }
-    this.drawExpansion(context, this.mapBounds);
+    this.versionDisplay.draw(context, this.viewport);
     this.drawConfirm(context, full);
   }
 }
