@@ -18,6 +18,7 @@ class EmployeeScene {
     this.tab = 'mine';
     this.selectedId = null;
     this.toast = '';
+    this.scrollOffset = 0;
   }
 
   enter() {
@@ -68,24 +69,56 @@ class EmployeeScene {
   drawEmployeeCard(context, box, employee) {
     const selected = employee.id === this.selectedId;
     CanvasUtils.fillRoundedRect(context, box, 5, selected ? '#183b50' : '#122c3d'); CanvasUtils.strokeRoundedRect(context, box, 5, selected ? '#d8a947' : '#355063', 1);
-    context.fillStyle = '#244b61'; context.fillRect(box.x + 8, box.y + 9, 42, 42);
-    context.fillStyle = '#e9ba52'; context.font = 'bold 18px sans-serif'; context.textAlign = 'center'; context.fillText(employee.name.slice(-1), box.x + 29, box.y + 36);
-    context.textAlign = 'left'; context.fillStyle = '#f4f0df'; context.font = 'bold 11px sans-serif'; context.fillText(employee.name, box.x + 58, box.y + 18);
-    context.fillStyle = '#91a6b2'; context.font = '9px sans-serif'; context.fillText(roleName(employee.type) + ' · Lv.' + employee.level + ' · ¥' + employee.salary + '/月', box.x + 58, box.y + 35);
-    context.fillStyle = '#66b8db'; context.fillText('服务 ' + employee.attributes.service + '  效率 ' + employee.attributes.efficiency + '  · ' + employee.traits.join('、'), box.x + 58, box.y + 52);
+    const avatar = rect(box.x + 7, box.y + 7, box.height - 14, box.height - 14);
+    CanvasUtils.fillRoundedRect(context, avatar, 4, '#1a384e'); CanvasUtils.strokeRoundedRect(context, avatar, 4, '#2d5068', 1);
+    context.fillStyle = '#3a607a'; context.font = 'bold 12px sans-serif'; context.textAlign = 'center'; context.fillText(employee.name.slice(0, 1), avatar.x + avatar.width / 2, avatar.y + avatar.height / 2 + 4);
+    const infoX = avatar.x + avatar.width + 8;
+    context.textAlign = 'left'; context.fillStyle = '#f4f0df'; context.font = 'bold 11px sans-serif'; context.fillText(employee.name, infoX, box.y + 18);
+    context.fillStyle = '#91a6b2'; context.font = '9px sans-serif'; context.fillText(roleName(employee.type) + ' · Lv.' + employee.level + ' · ¥' + employee.salary + '/月', infoX, box.y + 35);
+    context.fillStyle = '#66b8db'; context.fillText('服务 ' + employee.attributes.service + '  效率 ' + employee.attributes.efficiency + '  · ' + employee.traits.join('、'), infoX, box.y + 52);
     this.inputManager.register('employee:item:' + employee.id, box, () => { this.selectedId = employee.id; this.toast = ''; this.requestRender(); });
   }
 
   drawMine(context, box, state) {
     const employees = this.system.employees(state);
     const detailWidth = Math.max(205, Math.min(235, box.width * 0.31));
-    const list = rect(box.x, box.y, box.width - detailWidth - 7, box.height);
-    CanvasUtils.fillRoundedRect(context, list, 5, '#0b2030'); CanvasUtils.strokeRoundedRect(context, list, 5, '#314958', 1);
+    const listBox = rect(box.x, box.y, box.width - detailWidth - 7, box.height);
+    CanvasUtils.fillRoundedRect(context, listBox, 5, '#0b2030'); CanvasUtils.strokeRoundedRect(context, listBox, 5, '#314958', 1);
     if (!employees.length) {
-      context.fillStyle = '#8ba0ad'; context.font = '12px sans-serif'; context.textAlign = 'center'; context.fillText('暂无员工，请前往人才市场招聘', list.x + list.width / 2, list.y + list.height / 2);
+      context.fillStyle = '#8ba0ad'; context.font = '12px sans-serif'; context.textAlign = 'center'; context.fillText('暂无员工，请前往人才市场招聘', listBox.x + listBox.width / 2, listBox.y + listBox.height / 2);
+    } else {
+      const cardH = 61; const cardGap = 6; const innerPad = 7;
+      const totalHeight = employees.length * (cardH + cardGap);
+      const maxScroll = Math.max(0, totalHeight - (listBox.height - innerPad));
+      this.scrollOffset = Math.max(0, Math.min(this.scrollOffset || 0, maxScroll));
+      context.save();
+      context.beginPath(); context.rect(listBox.x + 1, listBox.y + 1, listBox.width - 2, listBox.height - 2); context.clip();
+      employees.forEach((employee, index) => {
+        const cardY = listBox.y + innerPad + index * (cardH + cardGap) - this.scrollOffset;
+        if (cardY + cardH < listBox.y || cardY > listBox.y + listBox.height) return;
+        this.drawEmployeeCard(context, rect(listBox.x + innerPad, cardY, listBox.width - innerPad * 2, cardH), employee);
+      });
+      context.restore();
+      if (maxScroll > 0) {
+        const barW = 5; const barX = listBox.x + listBox.width - barW - 10;
+        const barH = Math.max(20, listBox.height * listBox.height / totalHeight);
+        const barY = listBox.y + (this.scrollOffset / maxScroll) * (listBox.height - barH);
+        context.fillStyle = 'rgba(200,180,140,0.35)';
+        CanvasUtils.fillRoundedRect(context, rect(barX, barY, barW, barH), 3, null);
+        context.fillStyle = null;
+        const btnS = 20; const btnX = listBox.x + listBox.width - btnS - 4;
+        const btnUp = rect(btnX, listBox.y + 1, btnS, btnS);
+        const btnDown = rect(btnX, listBox.y + listBox.height - btnS - 1, btnS, btnS);
+        context.fillStyle = 'rgba(120,140,160,0.45)'; context.font = 'bold 9px sans-serif'; context.textAlign = 'center';
+        CanvasUtils.fillRoundedRect(context, btnUp, 3, null); context.fillStyle = '#d5dfdf'; context.fillText('▲', btnUp.x + btnS / 2, btnUp.y + btnS / 2 + 3);
+        context.fillStyle = 'rgba(120,140,160,0.45)';
+        CanvasUtils.fillRoundedRect(context, btnDown, 3, null); context.fillStyle = '#d5dfdf'; context.fillText('▼', btnDown.x + btnS / 2, btnDown.y + btnS / 2 + 3);
+        context.fillStyle = null;
+        this.inputManager.register('employee:scrollUp', btnUp, () => { this.scrollOffset = Math.max(0, this.scrollOffset - cardH - cardGap); this.requestRender(); });
+        this.inputManager.register('employee:scrollDown', btnDown, () => { this.scrollOffset = Math.min(maxScroll, this.scrollOffset + cardH + cardGap); this.requestRender(); });
+      }
     }
-    employees.slice(0, 4).forEach((employee, index) => this.drawEmployeeCard(context, rect(list.x + 7, list.y + 7 + index * 67, list.width - 14, 61), employee));
-    const detail = rect(list.x + list.width + 7, box.y, detailWidth, box.height);
+    const detail = rect(listBox.x + listBox.width + 7, box.y, detailWidth, box.height);
     CanvasUtils.fillRoundedRect(context, detail, 5, '#0d2232'); CanvasUtils.strokeRoundedRect(context, detail, 5, '#5d5034', 1);
     const employee = employees.find((item) => item.id === this.selectedId) || employees[0];
     if (!employee) return;
