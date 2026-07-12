@@ -95,13 +95,25 @@ class DeviceSystem {
     return installed ? Math.round(weighted / installed) : 100;
   }
 
-  calculateDailyElectricity(devices) {
-    const usage = this.catalog.items.reduce((total, config) => {
+  getInfrastructure(state, type) {
+    const root = state || {};
+    const item = (Array.isArray(root.furniture) ? root.furniture : []).find((entry) => entry && entry.type === type);
+    const config = this.furnitureByType[type];
+    if (!item || !config || !config.infrastructure) return { installed: 0, level: 1, condition: 100, config: config || null };
+    return { installed: 1, level: clamp(integer(item.level, 1), 1, config.maxLevel || 5), condition: clamp(Number(item.condition) || 100, 0, 100), config: config };
+  }
+
+  calculateDailyElectricity(devices, furniture) {
+    const computerUsage = this.catalog.items.reduce((total, config) => {
       const record = this.getRecord(devices, config.type);
       const levelPowerFactor = 1 + (record.level - 1) * 0.04;
       return total + record.installed * config.powerUsage * levelPowerFactor;
     }, 0);
-    return Math.round(usage * this.catalog.electricityPricePerUnit * 10) / 10;
+    const infrastructureUsage = (Array.isArray(furniture) ? furniture : []).reduce((total, item) => {
+      const config = item && this.furnitureByType[item.type];
+      return total + (config && config.infrastructure ? config.powerUsage * (1 + ((Number(item.level) || 1) - 1) * 0.04) : 0);
+    }, 0);
+    return Math.round((computerUsage + infrastructureUsage) * this.catalog.electricityPricePerUnit * 10) / 10;
   }
 
   getSummary(state) {
@@ -113,7 +125,7 @@ class DeviceSystem {
       freeComputerSlots: 0,
       equipmentScore: this.calculateScore(state.devices),
       averageCondition: this.calculateAverageCondition(state.devices),
-      dailyElectricity: this.calculateDailyElectricity(state.devices)
+      dailyElectricity: this.calculateDailyElectricity(state.devices, state.furniture)
     };
   }
 
@@ -125,16 +137,22 @@ class DeviceSystem {
       const config = this.catalog.byType[item.type]; const record = this.getRecord(root.devices, item.type);
       return { tier: item.tier, count: record.installed, performance: Math.round(config.performance * (1 + (record.level - 1) * 0.15) * record.condition / 100), powerUsage: config.powerUsage };
     });
-    const router = this.getRecord(root.devices, 'gigabit_router'); const routerConfig = this.catalog.byType.gigabit_router;
-    const ups = this.getRecord(root.devices, 'ups_power'); const upsConfig = this.catalog.byType.ups_power;
-    const air = this.getRecord(root.devices, 'commercial_ac'); const airConfig = this.catalog.byType.commercial_ac;
+    const router = this.getInfrastructure(root, 'gigabit_router');
+    const ups = this.getInfrastructure(root, 'ups_power');
+    const air = this.getInfrastructure(root, 'commercial_ac');
     const count = pools.reduce((sum, pool) => sum + pool.count, 0); const performance = pools.reduce((sum, pool) => sum + pool.count * pool.performance, 0);
     const averagePerformance = count ? Math.round(performance / count) : 0;
-    const averageCondition = this.calculateAverageCondition(root.devices);
-    const networkQuality = clamp(25 + router.installed * 35 + (router.level - 1) * 8, 0, 100);
-    const powerQuality = clamp(25 + ups.installed * 35 + (ups.level - 1) * 8, 0, 100);
-    const climateQuality = clamp(25 + air.installed * airConfig.capacity * 5 + (air.level - 1) * 9, 0, 100);
-    return { installedComputerCount: count, computerPools: pools, averagePerformance: averagePerformance, computerQuality: clamp(Math.round(averagePerformance * 0.8 + averageCondition * 0.2), 0, 100), equipmentScore: this.calculateScore(root.devices), averageCondition: averageCondition, networkQuality: networkQuality, networkCapacity: 5 + router.installed * routerConfig.capacity * (1 + (router.level - 1) * 0.25), powerQuality: powerQuality, powerCapacity: 4 + ups.installed * upsConfig.capacity * (1 + (ups.level - 1) * 0.25), climateQuality: climateQuality, climateSupport: air.installed ? Math.round((climateQuality - 25) * 0.2) : 0, currentPowerDemand: Math.round(this.catalog.items.reduce((sum, config) => sum + this.getRecord(root.devices, config.type).installed * config.powerUsage * (config.requiresComputerSlot ? 0.15 : 1), 0) * 10) / 10 };
+    const infrastructureConditions = [router, ups, air].filter((record) => record.installed).map((record) => record.condition);
+    const computerCondition = this.calculateAverageCondition(root.devices);
+    const averageCondition = infrastructureConditions.length ? Math.round((computerCondition + infrastructureConditions.reduce((sum, value) => sum + value, 0)) / (infrastructureConditions.length + 1)) : computerCondition;
+    const quality = (record, fallback) => record.installed ? clamp((record.config.infrastructure.baseQuality + (record.level - 1) * record.config.infrastructure.qualityPerLevel) * record.condition / 100, 0, 100) : fallback;
+    const capacity = (record, fallback) => record.installed ? Math.max(fallback, (record.config.infrastructure.baseCapacity + (record.level - 1) * record.config.infrastructure.capacityPerLevel) * record.condition / 100) : fallback;
+    const networkQuality = quality(router, 25);
+    const powerQuality = quality(ups, 25);
+    const climateQuality = quality(air, 25);
+    const infrastructurePower = [router, ups, air].reduce((sum, record) => sum + (record.installed && record.config ? record.config.powerUsage : 0), 0);
+    const computerPower = this.catalog.items.reduce((sum, config) => sum + this.getRecord(root.devices, config.type).installed * config.powerUsage * 0.15, 0);
+    return { installedComputerCount: count, computerPools: pools, averagePerformance: averagePerformance, computerQuality: clamp(Math.round(averagePerformance * 0.8 + computerCondition * 0.2), 0, 100), equipmentScore: this.calculateScore(root.devices), averageCondition: averageCondition, networkQuality: Math.round(networkQuality), networkCapacity: capacity(router, 5), powerQuality: Math.round(powerQuality), powerCapacity: capacity(ups, 4), climateQuality: Math.round(climateQuality), climateSupport: air.installed ? Math.round((climateQuality - 25) * 0.2) : 0, currentPowerDemand: Math.round((computerPower + infrastructurePower) * 10) / 10 };
   }
 
   commit(mutator) {

@@ -80,6 +80,10 @@ class FurnitureManager {
       };
       if (raw.textureVariant != null) item.textureVariant = raw.textureVariant;
       if (raw.sourceSystem) item.sourceSystem = raw.sourceSystem;
+      if (this.catalogByType[type].infrastructure) {
+        item.level = Math.max(1, Math.min(this.catalogByType[type].maxLevel || 5, Math.floor(Number(raw.level) || 1)));
+        item.condition = Math.max(0, Math.min(100, Math.round(Number(raw.condition) || 100)));
+      }
       if (!Number.isFinite(item.gridX) || !Number.isFinite(item.gridY)) return;
       if (this.gridMap.validatePlacement(result, this.catalogByType, item, item.id).ok) result.push(item);
     });

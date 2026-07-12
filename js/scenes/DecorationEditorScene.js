@@ -234,6 +234,7 @@ class DecorationEditorScene {
       const price = isComputerPurchase ? this._computerPurchase.price : config.price;
       if (this.draft.draftCash < price) { this.draft.setToast('现金不足'); this.requestRender(); return; }
       const created = this.furnitureManager.create(item.type, item.gridX, item.gridY, item.rotation);
+      if (config.infrastructure) { created.level = 1; created.condition = 100; }
       if (isComputerPurchase) {
         // 轮流分配电脑颜色
         if (this._nextComputerColor === undefined) this._nextComputerColor = 0;
@@ -276,13 +277,16 @@ class DecorationEditorScene {
     const item = this.furnitureManager.find(this.draft.draftFurniture, this.draft.selectedFurnitureId);
     if (!item) return;
     const config = this.catalogByType[item.type];
-    const refund = Math.floor(config.price * config.refundRate);
+    const computerTypes = { standard_pc_desk: 'basic_pc', double_gaming_desk: 'gaming_pc', vip_pc_set: 'premium_pc' };
+    const computerType = computerTypes[item.type];
+    const computerConfig = computerType && equipmentCatalog.byType[computerType];
+    const refund = Math.floor((computerConfig ? computerConfig.purchasePrice : config.price) * config.refundRate);
     this.showConfirm('确认出售“' + config.name + '”并返还 ¥' + refund + '？', [
       { label: '取消', action: () => {} },
       { label: '确认出售', action: () => {
         this.draft.draftFurniture = this.furnitureManager.remove(this.draft.draftFurniture, item.id);
         this.draft.draftCash += refund;
-        this.draft.financeEntries.push({ direction: 'income', category: 'asset_sale_refund', amount: refund, sourceSystem: 'decoration', sourceId: item.id, description: '出售' + config.name });
+        this.draft.financeEntries.push({ direction: 'income', category: 'asset_sale_refund', amount: refund, sourceSystem: computerType ? 'device' : 'decoration', sourceId: computerType || item.id, description: '出售' + (computerConfig ? computerConfig.name : config.name), metadata: computerType ? { deviceDelta: -1 } : {} });
         this.draft.selectedFurnitureId = null;
         this.detailOpen = false;
     
@@ -293,7 +297,7 @@ class DecorationEditorScene {
 
   savePlan(exitAfter) {
     const furniture = JSON.parse(JSON.stringify(this.draft.draftFurniture));
-    const result = this.financeSystem.recordBatch(this.draft.financeEntries, (state) => { state.furniture = furniture; const computerTypes = { standard_pc_desk: 'basic_pc', double_gaming_desk: 'gaming_pc', vip_pc_set: 'premium_pc' }; this.draft.financeEntries.filter(e => e.sourceSystem === 'device').forEach(e => { if (!state.devices) state.devices = {}; const pcType = e.sourceId; if (pcType && !state.devices[pcType]) state.devices[pcType] = { owned: 0, installed: 0, level: 1, condition: 100 }; if (pcType) { state.devices[pcType].owned += 1; state.devices[pcType].installed += 1; } }); }, '装修方案已保存');
+    const result = this.financeSystem.recordBatch(this.draft.financeEntries, (state) => { state.furniture = furniture; this.draft.financeEntries.filter(e => e.sourceSystem === 'device').forEach(e => { if (!state.devices) state.devices = {}; const pcType = e.sourceId; if (pcType && !state.devices[pcType]) state.devices[pcType] = { owned: 0, installed: 0, level: 1, condition: 100 }; if (!pcType) return; if (e.category === 'equipment_purchase') { state.devices[pcType].owned += 1; state.devices[pcType].installed += 1; } else if (e.metadata && e.metadata.deviceDelta < 0) { state.devices[pcType].owned = Math.max(0, state.devices[pcType].owned - 1); state.devices[pcType].installed = Math.max(0, state.devices[pcType].installed - 1); } else if (e.metadata && e.metadata.deviceUpgrade > 0) { state.devices[pcType].level = Math.min(equipmentCatalog.byType[pcType].maxLevel, state.devices[pcType].level + 1); } }); }, '装修方案已保存');
     if (!result.ok) { this.draft.setToast(result.message); this.requestRender(); return; }
     this.draft.resetFromState(this.gameState.getState());
     if (exitAfter) this.exitToMain();
@@ -312,48 +316,7 @@ class DecorationEditorScene {
   }
 
   exitToMain() {
-    if (this.devicePlacementMode && this.devicePlacementData) {
-      this.completeDevicePurchase();
-    }
     this.leave(); this.onExit();
-  }
-
-  completeDevicePurchase() {
-    const data = this.devicePlacementData;
-    const state = this.gameState.getState();
-    if (!data) return;
-    
-    const deskMap = { basic_pc: 'standard_pc_desk', gaming_pc: 'double_gaming_desk', premium_pc: 'vip_pc_set' };
-    const deskType = deskMap[data.type] || 'standard_pc_desk';
-    const newDeskCount = (state.furniture || []).filter(function(f) { return f && f.type === deskType; }).length;
-    const preCount = this._prePlacementDeskCount || 0;
-    
-    if (newDeskCount <= preCount) {
-      this.showToast('未放置' + data.name + '，购买已取消');
-      this.devicePlacementMode = false;
-      this.devicePlacementData = null;
-      return;
-    }
-    
-    // 扣除资金（家具已由savePlan保存）
-    state.player.cash -= data.price;
-    
-    // 记录财务交易
-    const FinanceSystem = require('../systems/FinanceSystem');
-    const fs2 = new FinanceSystem(this.gameState, this.saveManager);
-    fs2.recordExpense({
-      category: 'equipment_purchase',
-      amount: data.price,
-      sourceSystem: 'device',
-      sourceId: data.type,
-      description: 'Purchase ' + data.name + ' (placed via decoration)',
-      successMessage: '',
-      mutate: function() {}
-    });
-    this.saveManager.save(state);
-    this.showToast(data.name + '购买成功！');
-    this.devicePlacementMode = false;
-    this.devicePlacementData = null;
   }
 
   button(context, id, box, label, enabled, action, selected, gold) {
@@ -376,6 +339,42 @@ class DecorationEditorScene {
     if (this.draft.dirty) { context.fillStyle = '#f0c15b'; context.fillText('● 未保存', box.x + box.width - 146 - rightSafeOffset, box.y + 26); }
     else { context.fillStyle = '#77909e'; context.fillText('已保存', box.x + box.width - 136 - rightSafeOffset, box.y + 26); }
     this.button(context, 'editor:save', rect(box.x + box.width - 72 - rightSafeOffset, box.y + 1, 66, Math.max(40, box.height - 2)), '保存', true, () => this.savePlan(false), false, true);
+  }
+
+  upgradeInfrastructureSelected() {
+    const item = this.furnitureManager.find(this.draft.draftFurniture, this.draft.selectedFurnitureId);
+    if (!item) return;
+    const config = this.catalogByType[item.type];
+    if (!config || !config.infrastructure) return;
+    const level = Math.max(1, Number(item.level) || 1);
+    if (level >= config.maxLevel) { this.draft.setToast('该设施已达到最高等级'); this.requestRender(); return; }
+    const cost = config.upgradeBasePrice * level;
+    if (this.draft.draftCash < cost) { this.draft.setToast('现金不足'); this.requestRender(); return; }
+    item.level = level + 1;
+    this.draft.draftCash -= cost;
+    this.draft.financeEntries.push({ direction: 'expense', category: 'equipment_upgrade', amount: cost, sourceSystem: 'decoration', sourceId: item.id, description: '升级' + config.name + '至 Lv.' + item.level });
+    this.draft.markDirty();
+    this.draft.setToast(config.name + '已升级至 Lv.' + item.level + '，保存后生效');
+    this.requestRender();
+  }
+
+  upgradeComputerSelected() {
+    const item = this.furnitureManager.find(this.draft.draftFurniture, this.draft.selectedFurnitureId);
+    const typeMap = { standard_pc_desk: 'basic_pc', double_gaming_desk: 'gaming_pc', vip_pc_set: 'premium_pc' };
+    const type = item && typeMap[item.type];
+    const config = type && equipmentCatalog.byType[type];
+    if (!config) return;
+    const record = this.gameState.getState().devices[type] || { level: 1 };
+    const pending = this.draft.financeEntries.filter((entry) => entry.category === 'equipment_upgrade' && entry.sourceId === type).length;
+    const level = Math.max(1, Number(record.level) || 1) + pending;
+    if (level >= config.maxLevel) { this.draft.setToast('该电脑已达到最高等级'); this.requestRender(); return; }
+    const cost = config.upgradeBasePrice * level;
+    if (this.draft.draftCash < cost) { this.draft.setToast('现金不足'); this.requestRender(); return; }
+    this.draft.draftCash -= cost;
+    this.draft.financeEntries.push({ direction: 'expense', category: 'equipment_upgrade', amount: cost, sourceSystem: 'device', sourceId: type, description: '升级' + config.name + '至 Lv.' + (level + 1), metadata: { deviceUpgrade: 1 } });
+    this.draft.markDirty();
+    this.draft.setToast(config.name + '升级方案已加入，保存后生效');
+    this.requestRender();
   }
 
   drawToolbar(context, box) {
@@ -408,7 +407,7 @@ class DecorationEditorScene {
     CanvasUtils.fillRoundedRect(context, box, 7, '#0d2232'); CanvasUtils.strokeRoundedRect(context, box, 7, '#d3a845', 1);
     context.fillStyle = '#f3d47d'; context.font = 'bold 13px sans-serif'; context.textAlign = 'left'; context.fillText('家具库', box.x + 12, box.y + 22);
     this.button(context, 'drawer:close', rect(box.x + box.width - 46, box.y + 2, 40, 40), '×', true, () => { this.drawerOpen = false; this.requestRender(); });
-    const categories = ['家具', '装饰', '电脑', '扩建'];
+    const categories = ['家具', '装饰', '基建', '电脑', '扩建'];
     const tabW = (box.width - 16) / categories.length;
     categories.forEach((name, index) => this.button(context, 'drawer:cat:' + name, rect(box.x + 8 + index * tabW, box.y + 43, tabW - 3, 40), name, true, () => { this.category = name; this.catalogScroll = 0; this.requestRender(); }, this.category === name));
     const listTop = box.y + 90;
@@ -463,12 +462,15 @@ class DecorationEditorScene {
       const card = rect(box.x + 8, listTop + index * (cardH + 6) - this.catalogScroll, box.width - 16, cardH);
       if (card.y + card.height < listTop || card.y > listTop + visibleH) return;
       CanvasUtils.fillRoundedRect(context, card, 5, '#132c3e'); CanvasUtils.strokeRoundedRect(context, card, 5, '#365265', 1);
-      context.fillStyle = (item.visual && item.visual.fallbackStyle.body) || item.renderStyle.body; context.fillRect(card.x + 8, card.y + 14, 36, 28);
+      const itemImage = item.visual && item.visual.spriteKey ? this.assetManager.getImage(item.visual.spriteKey) : null;
+      if (itemImage && itemImage.width && itemImage.height) { context.save(); context.imageSmoothingEnabled = false; context.drawImage(itemImage, card.x + 8, card.y + 8, 42, 42); context.restore(); }
+      else { context.fillStyle = (item.visual && item.visual.fallbackStyle.body) || item.renderStyle.body; context.fillRect(card.x + 8, card.y + 14, 36, 28); }
       context.fillStyle = '#f4f0df'; context.font = 'bold 11px sans-serif'; context.textAlign = 'left'; context.fillText(item.name, card.x + 52, card.y + 18);
       context.fillStyle = '#90a6b3'; context.font = '10px sans-serif'; context.fillText('¥' + item.price + '  \xB7  ' + item.width + '\xD7' + item.height + '\u683C', card.x + 52, card.y + 36);
       const bonus = Object.keys(item.ratingBonus).find(function(key) { return item.ratingBonus[key] > 0; });
-      context.fillStyle = '#d8b65b'; context.fillText(bonus ? bonus + ' +' + item.ratingBonus[bonus] : '\u88C5\u9970\u5BB6\u5177', card.x + 52, card.y + 52);
-      this.inputManager.register('drawer:item:' + item.type, card, function() { this.draft.selectCatalog(item.type); this.drawerOpen = false; this.detailOpen = true; this.requestRender(); }.bind(this));
+      const owned = this.draft.draftFurniture.some(function(entry) { return entry.type === item.type; });
+      context.fillStyle = '#d8b65b'; context.fillText(item.infrastructure ? (owned ? '已拥有 · 限购1台' : '基础设施 · 限购1台') : (bonus ? bonus + ' +' + item.ratingBonus[bonus] : '\u88C5\u9970\u5BB6\u5177'), card.x + 52, card.y + 52);
+      if (!item.infrastructure || !owned) this.inputManager.register('drawer:item:' + item.type, card, function() { this.draft.selectCatalog(item.type); this.drawerOpen = false; this.detailOpen = true; this.requestRender(); }.bind(this));
     }.bind(this));
     context.restore();
     // Scrollbar
@@ -492,7 +494,15 @@ class DecorationEditorScene {
  this.requestRender(); });
     const refund = Math.floor(config.price * config.refundRate);
     const rating = this.draft.cachedRatings;
-    const rows = [
+    const computerTypes = { standard_pc_desk: 'basic_pc', double_gaming_desk: 'gaming_pc', vip_pc_set: 'premium_pc' };
+    const selectedComputerType = selected && computerTypes[selected.type];
+    const rows = config.infrastructure && selected ? [
+      ['价格 / 退款', '¥' + config.price + ' / ¥' + refund], ['占地', config.width + '×' + config.height], ['当前现金', '¥' + this.draft.draftCash.toLocaleString()],
+      ['设施等级', 'Lv.' + (Number(selected.level) || 1) + ' / Lv.' + config.maxLevel], ['综合影响', config.infrastructure.kind === 'network' ? '网络质量与容量' : (config.infrastructure.kind === 'power' ? '供电质量与容量' : '环境与舒适度')]
+    ] : selectedComputerType ? [
+      ['资产类型', '电脑设备'], ['电脑型号', equipmentCatalog.byType[selectedComputerType].name], ['当前等级', 'Lv.' + ((this.gameState.getState().devices[selectedComputerType] || {}).level || 1)],
+      ['出售回款', '¥' + Math.floor(equipmentCatalog.byType[selectedComputerType].purchasePrice * config.refundRate)], ['管理方式', '选中实体升级/出售']
+    ] : [
       ['价格 / 退款', '¥' + config.price + ' / ¥' + refund], ['占地', config.width + '×' + config.height], ['当前现金', '¥' + this.draft.draftCash.toLocaleString()],
       ['环境 / 设备', rating.environment + ' / ' + rating.equipment], ['服务 / 卫生', rating.service + ' / ' + rating.hygiene],
       ['舒适 / 综合', rating.comfort + ' / ' + rating.overall], ['容量', String(rating.capacity)]
@@ -502,6 +512,20 @@ class DecorationEditorScene {
       context.fillStyle = '#89a0ae'; context.font = '10px sans-serif'; context.textAlign = 'left'; context.fillText(row[0], box.x + 12, y);
       context.fillStyle = index >= 5 ? '#f0c15b' : '#eef2e8'; context.textAlign = 'right'; context.fillText(row[1], box.x + box.width - 12, y);
     });
+    if (selected && config.infrastructure) {
+      const level = Math.max(1, Number(selected.level) || 1);
+      const cost = config.upgradeBasePrice * level;
+      context.fillStyle = '#72c5e8'; context.font = '9px sans-serif'; context.textAlign = 'left';
+      context.fillText('设施等级 Lv.' + level + '/' + config.maxLevel, box.x + 12, box.y + box.height - 44);
+      this.button(context, 'detail:upgrade', rect(box.x + box.width - 116, box.y + box.height - 63, 104, 38), level < config.maxLevel ? '升级 ¥' + cost : '已满级', level < config.maxLevel, () => this.upgradeInfrastructureSelected(), false, true);
+    } else if (selectedComputerType) {
+      const computer = equipmentCatalog.byType[selectedComputerType];
+      const record = this.gameState.getState().devices[selectedComputerType] || { level: 1 };
+      const pending = this.draft.financeEntries.filter((entry) => entry.category === 'equipment_upgrade' && entry.sourceId === selectedComputerType).length;
+      const level = (Number(record.level) || 1) + pending;
+      const cost = computer.upgradeBasePrice * level;
+      this.button(context, 'detail:upgrade-computer', rect(box.x + box.width - 116, box.y + box.height - 63, 104, 38), level < computer.maxLevel ? '升级 ¥' + cost : '已满级', level < computer.maxLevel, () => this.upgradeComputerSelected(), false, true);
+    }
   }
 
 

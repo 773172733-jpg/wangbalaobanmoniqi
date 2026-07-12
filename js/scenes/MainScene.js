@@ -4,7 +4,7 @@ const UIManager = require('../ui/UIManager');
 const TopBar = require('../ui/TopBar');
 const BottomTabBar = require('../ui/BottomTabBar');
 const OverviewScene = require('./OverviewScene');
-const DeviceScene = require('./DeviceScene');
+const WarehouseScene = require('./WarehouseScene');
 const EmployeeScene = require('./EmployeeScene');
 const MarketingScene = require('./MarketingScene');
 const FinanceScene = require('./FinanceScene');
@@ -24,7 +24,7 @@ class MainScene {
     this.tabs = [
       { id: 'overview', label: '概览' },
       { id: 'decoration', label: '装修' },
-      { id: 'device', label: '设备' },
+      { id: 'device', label: '仓库' },
       { id: 'employee', label: '员工' },
       { id: 'marketing', label: '营销' },
       { id: 'finance', label: '财务' }
@@ -41,7 +41,7 @@ class MainScene {
 
     this.scenes = {
       overview: new OverviewScene(sceneDependencies),
-      device: new DeviceScene(sceneDependencies),
+      device: new WarehouseScene(sceneDependencies),
       employee: new EmployeeScene(sceneDependencies),
       marketing: new MarketingScene(sceneDependencies),
       finance: new FinanceScene(sceneDependencies)

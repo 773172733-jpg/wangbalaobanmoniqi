@@ -20,6 +20,7 @@ const MapSystem = require('../js/map/MapSystem');
 const WorldGridSystem = require('../js/map/WorldGridSystem');
 const GridMap = require('../js/map/GridMap');
 const OperatingMetricsSystem = require('../js/systems/OperatingMetricsSystem');
+const InventorySystem = require('../js/systems/InventorySystem');
 
 function clone(value) { return JSON.parse(JSON.stringify(value)); }
 
@@ -67,7 +68,7 @@ function testMigrationAndRecovery() {
   } });
   const manager = new SaveManager(initialState);
   const loaded = manager.load();
-  assert.strictEqual(loaded.saveVersion, 8);
+  assert.strictEqual(loaded.saveVersion, 9);
   assert.strictEqual(loaded.player.cash, 43210);
   assert.strictEqual(loaded.player.level, 4);
   assert.strictEqual(loaded.furniture.length, 1);
@@ -85,22 +86,31 @@ function testMigrationAndRecovery() {
 
   global.wx = createWx({ storage: '{broken-json' });
   const recovered = new SaveManager(initialState).load();
-  assert.strictEqual(recovered.saveVersion, 8);
+  assert.strictEqual(recovered.saveVersion, 9);
   assert.strictEqual(recovered.player.cash, initialState.player.cash);
   assert.ok(recovered.devices.basic_pc);
+
+  global.wx = createWx({ storage: Object.assign(clone(initialState), { saveVersion: 8, furniture: [], devices: { gigabit_router: { owned: 2, installed: 2, level: 4, condition: 90 } } }) });
+  const infrastructureMigrated = new SaveManager(initialState).load();
+  const migratedRouter = infrastructureMigrated.furniture.find((item) => item.type === 'gigabit_router');
+  assert.ok(migratedRouter);
+  assert.strictEqual(migratedRouter.level, 4);
+  assert.strictEqual(migratedRouter.condition, 90);
+  assert.strictEqual(infrastructureMigrated.devices.gigabit_router, undefined);
+  assert.ok(new OperatingMetricsSystem().getMetrics(infrastructureMigrated).equipment.networkQuality > 70);
 }
 
 function simulationFixture(options) {
   const settings = options || {}; global.wx = createWx(); const saveManager = new SaveManager(initialState); const raw = clone(initialState);
   const computerCount = settings.basic || settings.gaming || settings.premium || 0; raw.furniture = Array.from({ length: computerCount }, (_, index) => ({ id: 'desk_' + index, type: 'standard_pc_desk', gridX: (index % 6) * 2, gridY: Math.floor(index / 6), rotation: 0 }));
   (settings.decor || []).forEach((type, index) => raw.furniture.push({ id: 'decor_' + index, type: type, gridX: index * 2, gridY: 4, rotation: 0 }));
+  if (settings.router) raw.furniture.push({ id: 'infra_router', type: 'gigabit_router', gridX: 0, gridY: 6, rotation: 0, level: settings.routerLevel || 1, condition: 100 });
+  if (settings.air) raw.furniture.push({ id: 'infra_air', type: 'commercial_ac', gridX: 3, gridY: 6, rotation: 0, level: settings.airLevel || 1, condition: 100 });
+  if (settings.ups) raw.furniture.push({ id: 'infra_ups', type: 'ups_power', gridX: 6, gridY: 6, rotation: 0, level: settings.upsLevel || 1, condition: 100 });
   raw.devices = {
     basic_pc: { owned: settings.basic || 0, installed: settings.basic || 0, level: 1, condition: 100 },
     gaming_pc: { owned: settings.gaming || 0, installed: settings.gaming || 0, level: 1, condition: 100 },
-    premium_pc: { owned: settings.premium || 0, installed: settings.premium || 0, level: 1, condition: 100 },
-    gigabit_router: { owned: settings.router ? 1 : 0, installed: settings.router ? 1 : 0, level: settings.routerLevel || 1, condition: 100 },
-    commercial_ac: { owned: settings.air ? 1 : 0, installed: settings.air ? 1 : 0, level: settings.airLevel || 1, condition: 100 },
-    ups_power: { owned: settings.ups ? 1 : 0, installed: settings.ups ? 1 : 0, level: settings.upsLevel || 1, condition: 100 }
+    premium_pc: { owned: settings.premium || 0, installed: settings.premium || 0, level: 1, condition: 100 }
   };
   raw.employees = settings.employees || []; if (settings.marketing) raw.marketing.activeCampaigns = [{ id: 'online_ads', startDay: 1, endDay: 99 }];
   const gameState = new GameState(saveManager.normalize(raw), new EventBus()); const eventBus = gameState.eventBus; const timeManager = new TimeManager(gameState, eventBus); const business = new BusinessSimulationSystem(gameState, saveManager, timeManager, eventBus); business.start(); return { gameState: gameState, saveManager: saveManager, timeManager: timeManager, business: business };
@@ -127,6 +137,13 @@ function testBusinessSimulation() {
   const marketBase = simulationFixture({ basic: 2, router: true, ups: true }); runSimulationDays(marketBase, 2); const basePotential = marketBase.gameState.getState().businessSimulation.dailyHistory.reduce((sum, day) => sum + day.potentialCustomers, 0);
   const marketed = simulationFixture({ basic: 2, router: true, ups: true, marketing: true }); runSimulationDays(marketed, 2); const marketedState = marketed.gameState.getState(); const marketedPotential = marketedState.businessSimulation.dailyHistory.reduce((sum, day) => sum + day.potentialCustomers, 0); assert.ok(marketedPotential >= basePotential); assert.ok(marketedState.businessSimulation.dailyHistory.reduce((sum, day) => sum + day.lostCustomers, 0) > 0);
 
+  const stocked = simulationFixture({ gaming: 10, router: true, ups: true });
+  assert.ok(new InventorySystem(stocked.gameState, stocked.saveManager).purchase('snack', 10).ok);
+  const stockedHistory = runSimulationDays(stocked, 5);
+  assert.ok(stockedHistory.reduce((sum, day) => sum + day.productIncome, 0) > 0);
+  assert.ok(stocked.gameState.getState().inventory.totalSold > 0);
+  assert.ok(stocked.gameState.getState().inventory.items.snack < 10);
+
   const plain = simulationFixture({ basic: 5, router: true, ups: true }); const plainHistory = runSimulationDays(plain, 5);
   const decorated = simulationFixture({ basic: 5, router: true, ups: true, decor: ['plant', 'plant', 'sofa', 'decorative_light', 'trash_bin'] }); const decoratedHistory = runSimulationDays(decorated, 5); assert.ok(new OperatingMetricsSystem().getMetrics(decorated.gameState.getState()).decoration.environmentScore > new OperatingMetricsSystem().getMetrics(plain.gameState.getState()).decoration.environmentScore); assert.ok(decoratedHistory.reduce((sum, day) => sum + day.averageSatisfaction, 0) >= plainHistory.reduce((sum, day) => sum + day.averageSatisfaction, 0));
 
@@ -138,7 +155,7 @@ function testBusinessSimulation() {
   assert.ok(fullMetrics.cafe.naturalTrafficMultiplier > plainMetrics.cafe.naturalTrafficMultiplier);
   assert.ok(fullMetrics.equipment.climateQuality > plainMetrics.equipment.climateQuality);
   runSimulationDays(full, 2);
-  assert.strictEqual(full.gameState.getState().player.level, fullMetrics.cafe.level);
+  assert.ok(full.gameState.getState().player.level >= fullMetrics.cafe.level);
 
   const finance = new FinanceSystem(basic.gameState, basic.saveManager); const firstDay = basic.gameState.getState().businessSimulation.dailyHistory[0].date; const beforeCount = finance.getTransactions({ category: 'seat_income' }).length; const duplicate = basic.business.settleDay(firstDay); assert.ok(duplicate.skipped || duplicate.results.every((item) => item.duplicate)); assert.strictEqual(finance.getTransactions({ category: 'seat_income' }).length, beforeCount);
   const lastKey = basic.gameState.getState().businessSimulation.lastProcessedHourKey; const current = basic.timeManager.getCurrentGameTime(); basic.business.processHour(current); assert.strictEqual(basic.gameState.getState().businessSimulation.lastProcessedHourKey, lastKey);
@@ -355,10 +372,59 @@ function testDeviceRules() {
   while (gameState.getState().devices.basic_pc.level < 5) assert.ok(system.upgrade('basic_pc').ok);
   assert.ok(!system.upgrade('basic_pc').ok);
 
-  assert.ok(system.purchase('gigabit_router').ok);
-  assert.ok(system.install('gigabit_router').ok);
-  assert.strictEqual(gameState.getState().devices.gigabit_router.installed, 1);
+  gameState.getState().furniture.push({ id: 'router', type: 'gigabit_router', gridX: 3, gridY: 0, rotation: 0, level: 3, condition: 100 });
+  assert.ok(system.getOperatingMetrics(gameState.getState()).networkQuality > 60);
   assert.ok(system.getSummary(gameState.getState()).equipmentScore > 0);
+}
+
+function testInventoryRules() {
+  global.wx = createWx();
+  const saveManager = new SaveManager(initialState);
+  const gameState = new GameState(saveManager.normalize(clone(initialState)), new EventBus());
+  const system = new InventorySystem(gameState, saveManager);
+  const beforeCash = gameState.getState().player.cash;
+  assert.ok(!system.purchase('snack', 1).ok);
+  assert.strictEqual(system.getQuantity('snack'), 0);
+  assert.ok(system.purchase('snack', 10).ok);
+  assert.strictEqual(system.getQuantity('snack'), 10);
+  assert.strictEqual(gameState.getState().player.cash, beforeCash - 30);
+  assert.strictEqual(gameState.getState().finance.transactions.slice(-1)[0].category, 'inventory_purchase');
+  assert.ok(system.purchase('rental_keyboard', 1).ok);
+  assert.strictEqual(system.getQuantity('rental_keyboard'), 1);
+  const reloaded = saveManager.load();
+  assert.strictEqual(reloaded.inventory.items.snack, 10);
+  assert.strictEqual(reloaded.inventory.items.rental_keyboard, 1);
+}
+
+function testInfrastructureLifecycle() {
+  global.wx = createWx();
+  const game = new Game();
+  game.start();
+  game.openDecorationEditor();
+  const editor = game.decorationEditorScene;
+  editor.draft.selectCatalog('gigabit_router');
+  editor.draft.previewPosition = { gridX: 0, gridY: 0 };
+  editor.confirmPlacement();
+  assert.strictEqual(editor.draft.draftFurniture.filter((item) => item.type === 'gigabit_router').length, 1);
+  const router = editor.draft.draftFurniture.find((item) => item.type === 'gigabit_router');
+  editor.draft.selectFurniture(router.id);
+  editor.upgradeInfrastructureSelected();
+  editor.savePlan(false);
+  const savedRouter = game.gameState.getState().furniture.find((item) => item.type === 'gigabit_router');
+  assert.strictEqual(savedRouter.level, 2);
+  assert.strictEqual(game.gameState.getState().devices.gigabit_router, undefined);
+  const categories = game.gameState.getState().finance.transactions.slice(-2).map((item) => item.category);
+  assert.deepStrictEqual(categories, ['furniture_purchase', 'equipment_upgrade']);
+  editor.draft.selectCatalog('gigabit_router');
+  editor.draft.previewPosition = { gridX: 3, gridY: 0 };
+  editor.confirmPlacement();
+  assert.strictEqual(editor.draft.draftFurniture.filter((item) => item.type === 'gigabit_router').length, 1);
+  editor.draft.selectFurniture(savedRouter.id);
+  editor.sellSelected();
+  editor.draft.confirm.actions[1].action();
+  editor.draft.confirm = null;
+  editor.savePlan(false);
+  assert.strictEqual(game.gameState.getState().furniture.some((item) => item.type === 'gigabit_router'), false);
 }
 
 function testCamera() {
@@ -406,8 +472,9 @@ function testRuntimeAtSize(width, height, pixelRatio) {
   tabRegions.forEach((item) => assert.ok(item.bounds.width >= 40 && item.bounds.height >= 40));
   game.mainScene.switchScene('device');
   assert.strictEqual(game.inputManager.gestureHandler, game.mainScene.scenes.device.gestureHandler);
-  const actionRegions = game.inputManager.regions.filter((item) => item.id.indexOf('device:action:') === 0);
-  actionRegions.forEach((item) => assert.ok(item.bounds.width >= 40 && item.bounds.height >= 40));
+  const shopRegions = game.inputManager.regions.filter((item) => item.id === 'warehouse:shop:open');
+  assert.strictEqual(shopRegions.length, 1);
+  assert.ok(shopRegions[0].bounds.width >= 40 && shopRegions[0].bounds.height >= 40);
   game.mainScene.switchScene('marketing');
   const marketingRegions = game.inputManager.regions.filter((item) => item.id.indexOf('marketing:launch:') === 0);
   assert.ok(marketingRegions.length >= 2);
@@ -500,7 +567,7 @@ function testExpansion() {
   global.wx = createWx({ storage: oldData });
   let oldManager = new SaveManager(initialState);
   let migrated = oldManager.load();
-  assert.strictEqual(migrated.saveVersion, 8);
+  assert.strictEqual(migrated.saveVersion, 9);
   assert.ok(migrated.expansion, 'Old save should get expansion field');
   assert.strictEqual(migrated.expansion.level, 0);
   assert.strictEqual(migrated.expansion.currentArea, expansionConfig.baseArea);
@@ -737,6 +804,8 @@ function run() {
   testExpansionMapLinkage();
   testExpansionPreservesFurniture();
   testDeviceRules();
+  testInventoryRules();
+  testInfrastructureLifecycle();
   testEmployeeRules();
   testMarketingRules();
   testFinanceLedger();

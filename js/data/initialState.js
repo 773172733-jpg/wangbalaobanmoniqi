@@ -1,7 +1,7 @@
 ﻿'use strict';
 
 const initialState = {
-  saveVersion: 7,
+  saveVersion: 9,
   player: {
     level: 1,
     cash: 5000000,
@@ -57,7 +57,7 @@ const initialState = {
     today: {
       potentialCustomers: 0, admittedCustomers: 0, admittedBySegment: { student: 0, gamer: 0, office_worker: 0, streamer: 0 }, lostCustomers: 0, lostNoSeat: 0,
       lostLowPerformance: 0, lostNetwork: 0, lostPower: 0, lostService: 0,
-      servedSeatHours: 0, seatIncome: 0, productIncome: 0,
+      servedSeatHours: 0, seatIncome: 0, productIncome: 0, productUnitsSold: 0,
       satisfactionTotal: 0, satisfactionWeight: 0, peakOccupancy: 0, occupancySamples: []
     },
     lastDailySummary: null,
@@ -65,6 +65,11 @@ const initialState = {
     dailyHistory: []
   },
   customers: {},
+  inventory: {
+    items: {},
+    totalPurchased: 0,
+    totalSold: 0
+  },
   expansion: {
     level: 0,
     currentArea: 10000,

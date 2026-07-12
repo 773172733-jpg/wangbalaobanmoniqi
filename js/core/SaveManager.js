@@ -1,7 +1,7 @@
 ﻿'use strict';
 
 const STORAGE_KEY = 'internetCafeOwnerSave';
-const CURRENT_VERSION = 8;
+const CURRENT_VERSION = 9;
 const furnitureCatalog = require('../data/furnitureCatalog');
 const GridMap = require('../map/GridMap');
 const FurnitureManager = require('../map/FurnitureManager');
@@ -10,6 +10,7 @@ const DeviceSystem = require('../systems/DeviceSystem');
 const EmployeeSystem = require('../systems/EmployeeSystem');
 const FinanceSystem = require('../systems/FinanceSystem');
 const OperatingMetricsSystem = require('../systems/OperatingMetricsSystem');
+const InventorySystem = require('../systems/InventorySystem');
 
 function clone(value) {
   return JSON.parse(JSON.stringify(value));
@@ -48,6 +49,7 @@ class SaveManager {
     this.employeeSystem = new EmployeeSystem();
     this.financeSystem = new FinanceSystem();
     this.operatingMetricsSystem = new OperatingMetricsSystem();
+    this.inventorySystem = new InventorySystem();
   }
 
   load() {
@@ -92,6 +94,7 @@ class SaveManager {
     if (version < 6) migrated = this.migrateV5ToV6(migrated);
     if (version < 7) migrated = this.migrateV6ToV7(migrated);
     if (version < 8) migrated = this.migrateV7ToV8(migrated);
+    if (version < 9) migrated = this.migrateV8ToV9(migrated);
     if (version > CURRENT_VERSION) {
       console.warn('[存档] 检测到更高版本存档，将使用兼容字段读取');
     }
@@ -151,6 +154,34 @@ class SaveManager {
     }
     return data;
   }
+
+  migrateV8ToV9(data) {
+    if (!Array.isArray(data.furniture)) data.furniture = [];
+    data.devices = this.deviceSystem.convertLegacyDevices(data.devices);
+    const infrastructureTypes = ['gigabit_router', 'commercial_ac', 'ups_power'];
+    infrastructureTypes.forEach((type) => {
+      const legacy = data.devices[type];
+      const alreadyPlaced = data.furniture.some((item) => item && item.type === type);
+      if (!alreadyPlaced && legacy && Number(legacy.owned || legacy.installed) > 0) {
+        const config = this.catalogByType[type];
+        let placed = null;
+        for (let y = 0; y < this.gridMap.rows && !placed; y += 1) {
+          for (let x = 0; x < this.gridMap.columns && !placed; x += 1) {
+            const candidate = { id: 'migrated_' + type, type: type, gridX: x, gridY: y, rotation: 0, level: Math.max(1, Math.min(config.maxLevel || 5, Math.floor(Number(legacy.level) || 1))), condition: Math.max(0, Math.min(100, Math.round(Number(legacy.condition) || 100))) };
+            if (this.gridMap.validatePlacement(data.furniture, this.catalogByType, candidate, candidate.id).ok) placed = candidate;
+          }
+        }
+        if (!placed) {
+          const rightEdge = data.furniture.reduce((max, item) => { const itemConfig = item && this.catalogByType[item.type]; return itemConfig ? Math.max(max, (Number(item.gridX) || 0) + itemConfig.width) : max; }, 0);
+          placed = { id: 'migrated_' + type, type: type, gridX: rightEdge + 1, gridY: 0, rotation: 0, level: Math.max(1, Math.min(config.maxLevel || 5, Math.floor(Number(legacy.level) || 1))), condition: Math.max(0, Math.min(100, Math.round(Number(legacy.condition) || 100))) };
+        }
+        if (placed) data.furniture.push(placed);
+      }
+      delete data.devices[type];
+    });
+    data.inventory = this.inventorySystem.normalize(data.inventory);
+    return data;
+  }
   normalize(data) {
     const merged = mergeDefaults(this.defaultState, data);
     merged.saveVersion = CURRENT_VERSION;
@@ -172,6 +203,7 @@ class SaveManager {
     if (!Array.isArray(merged.marketing.activeCampaigns)) merged.marketing.activeCampaigns = [];
     merged.marketing.cooldowns = isPlainObject(data && data.marketing && data.marketing.cooldowns) ? clone(data.marketing.cooldowns) : {};
     merged.finance = this.financeSystem.normalizeFinance(data && data.finance);
+    merged.inventory = this.inventorySystem.normalize(data && data.inventory);
     merged.time.hour = Math.max(0, Math.min(23, Math.floor(Number(merged.time.hour) || 0)));
     if (!isPlainObject(merged.cafe.pricing)) merged.cafe.pricing = { hourlyRate: 8 };
     merged.cafe.pricing.hourlyRate = Math.max(0, Number(merged.cafe.pricing.hourlyRate) || 8);

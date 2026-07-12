@@ -12,6 +12,7 @@ const ExpansionSystem = require('../systems/ExpansionSystem');
 const MapSystem = require('../map/MapSystem');
 const MapBoundsManager = require('../map/MapBoundsManager');
 const WorldGridSystem = require('../map/WorldGridSystem');
+const furnitureCatalog = require('../data/furnitureCatalog');
 
 function rect(x, y, width, height) { return { x: x, y: y, width: width, height: height }; }
 function inside(point, box) { return point && point.x >= box.x && point.x <= box.x + box.width && point.y >= box.y && point.y <= box.y + box.height; }
@@ -86,6 +87,12 @@ class OverviewScene {
     if (this.assetManager && !this.assetManager.hasImage(barKeyOv)) {
       this.assetManager.loadImage(barKeyOv, 'assets/textures/furniture/bar_counter_01.png', () => this.requestRender());
     }
+    furnitureCatalog.forEach((item) => {
+      const visual = item.visual || {};
+      if (this.assetManager && visual.spriteKey && visual.spritePath && !this.assetManager.hasImage(visual.spriteKey)) {
+        this.assetManager.loadImage(visual.spriteKey, visual.spritePath, () => this.requestRender());
+      }
+    });
     this.worldGrid.init();
     this.gridMap.columns = this.worldGrid.columns;
     this.gridMap.rows = this.worldGrid.rows;

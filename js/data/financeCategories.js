@@ -7,7 +7,7 @@ const items = [
   ['other_income', '其他收入', 'income', true, false], ['payroll', '员工工资', 'expense', true, false],
   ['rent', '房租', 'expense', true, false], ['electricity', '电费', 'expense', true, false],
   ['network_fee', '网络费用', 'expense', true, false], ['equipment_maintenance', '设备维护', 'expense', true, false],
-  ['marketing', '营销费用', 'expense', true, false], ['daily_operation', '日常运营', 'expense', true, false],
+  ['marketing', '营销费用', 'expense', true, false], ['daily_operation', '日常运营', 'expense', true, false], ['inventory_purchase', '商品采购', 'expense', true, false],
   ['recruitment', '招聘费用', 'expense', true, false], ['equipment_purchase', '设备购买', 'expense', false, true],
   ['equipment_upgrade', '设备升级', 'expense', false, true], ['furniture_purchase', '家具购买', 'expense', false, true],
   ['decoration', '装修支出', 'expense', false, true], ['expansion', '扩建支出', 'expense', false, true],
